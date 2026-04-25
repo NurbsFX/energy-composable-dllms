@@ -85,6 +85,7 @@ artifacts/*.pt
 artifacts/*.safetensors
 artifacts/*.parquet
 artifacts/*.arrow
+artifacts/*.npy
 !artifacts/checkpoints/.gitkeep
 !artifacts/datasets/.gitkeep
 !artifacts/samples/.gitkeep

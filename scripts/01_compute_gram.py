@@ -49,6 +49,7 @@ def main(
 
     result = compute_gram(E, energy_names)
     (out_dir / "gram_matrix.json").write_text(json.dumps(result.to_json(), indent=2))
+    np.save(out_dir / "E_matrix.npy", E)
 
     plot_gram_heatmap(result.G, energy_names, out_dir / "plots" / "gram_heatmap.png")
     plot_pair_scatters(E, energy_names, out_dir / "plots" / "gram_pair_scatters.png")

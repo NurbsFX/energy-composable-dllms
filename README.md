@@ -31,6 +31,43 @@ Results and figures: [REPORT.md](REPORT.md).
 - [artifacts/](artifacts/) — produced data; large files gitignored, plots
   and small JSON metrics are kept under version control.
 
+## Dependence metrics
+
+The orthogonality assumption underlying the project is operationalised
+by four complementary dependence metrics on the `(N, k)` matrix of
+proxy energies sampled from `p_base`. We use all four because no single
+metric captures everything.
+
+| metric | formula | range | captures | code |
+|---|---|---|---|---|
+| **κ** | `‖G − diag(G)‖_F / Tr(G)` on the empirical covariance `G` | `[0, ∞)` | linear (Pearson) | [gram_matrix.py](src/energies/gram_matrix.py) |
+| **HSIC** | `(1/(N−1)²) · Tr(K_c L_c)` with RBF kernels and the median heuristic for σ | `[0, ∞)` | linear + non-linear | [independence.py](src/energies/independence.py) |
+| **CKA** | `HSIC(X,Y) / √(HSIC(X,X)·HSIC(Y,Y))` | `[0, 1]` | linear + non-linear, normalized | [independence.py](src/energies/independence.py) |
+| **MI** | KSG k-NN estimator of `I(X;Y) = ∫∫ p(x,y) log(p(x,y)/(p(x)p(y))) dxdy` | `[0, ∞)` nats | any dependence, info-theoretic | [independence.py](src/energies/independence.py) |
+
+In words:
+
+- **κ** is the cheapest and the only one that has a closed-form, but it
+  measures *only* linear (Pearson-style) covariance. Two variables can
+  have κ ≈ 0 and still be deterministically related (`Y = X²` with
+  centered `X` is the canonical example).
+- **HSIC** lifts the variables into a reproducing-kernel Hilbert space
+  before measuring covariance, so it sees non-linear coupling that κ
+  misses. It vanishes iff the variables are independent in the kernel
+  limit. Raw HSIC values are scale-dependent.
+- **CKA** is HSIC normalized by its self-similarity terms; it lies in
+  `[0, 1]` and is therefore directly comparable across pairs with
+  different marginals. **This is the right metric for ranking pairs.**
+- **MI** is the information-theoretic ground truth (`I(X;Y) = 0` iff
+  the variables are strictly independent), estimated via k-nearest
+  neighbours. Unbounded and slightly biased, but a useful cross-check
+  on the kernel-based metrics.
+
+For the central κ-vs-deficit experiment (Figure 5), κ is the variable
+of theoretical interest because it ties back to the EBM Gram matrix.
+But the experimental run also reports CKA and MI so that linear vs
+non-linear effects can be disentangled.
+
 ## Pipeline
 
 | Step | Script | Output |
@@ -71,6 +108,24 @@ MIT — see [LICENSE](LICENSE).
 
 Running log of structural / dependency / convention changes. Per-phase
 experimental results live in [REPORT.md](REPORT.md).
+
+### 2026-04-25 — Non-linear dependence metrics (HSIC, CKA, MI)
+
+- New module [src/energies/independence.py](src/energies/independence.py)
+  implementing HSIC with the median heuristic, the normalised CKA
+  (HSIC / √(HSIC·HSIC)) and the KSG mutual-information estimator via
+  scikit-learn.
+- New script [scripts/01b_independence_metrics.py](scripts/01b_independence_metrics.py)
+  reads the cached `E_matrix.npy` and prints κ / HSIC / CKA / MI
+  side-by-side per pair.
+- Patched [scripts/01_compute_gram.py](scripts/01_compute_gram.py) to dump
+  `E_matrix.npy` alongside the JSON so non-linear metrics can be
+  re-computed without re-running the proxy classifiers.
+- Added 8 unit tests in [tests/test_independence.py](tests/test_independence.py),
+  including the canonical `Y = X²` non-linear-but-Pearson-zero case.
+- `.gitignore` now ignores `artifacts/*.npy` (binary intermediate).
+- Full metric definitions added to [README.md](README.md) (this section
+  above) and [REPORT.md](REPORT.md) §2.
 
 ### 2026-04-25 — Dependency bounds relaxed
 

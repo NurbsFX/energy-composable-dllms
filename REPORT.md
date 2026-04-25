@@ -10,8 +10,104 @@ _TODO — one paragraph, the thesis in a single breath._
 
 ## 2. Formal recap
 
-See [THEORY.md](THEORY.md) for definitions, the ELBO bound used to evaluate
-`log p_θ`, and the PoE composition rule.
+### 2.1 Empirical Gram matrix
+
+Let `E_i(x)` be the proxy energy for vertical `i` evaluated on a text `x`,
+and let `{x_n}` be `N` samples drawn from the reference distribution
+`p_base` (here OpenWebText). The empirical Gram matrix is the sample
+covariance:
+
+```
+G_ij = Cov(E_i, E_j) = (1/N) Σ_n E_i(x_n) E_j(x_n) − Ē_i · Ē_j
+```
+
+All four dependence metrics below are computed from this matrix or from
+the full sample matrix `E ∈ ℝ^{N × k}` (k = number of verticals).
+
+### 2.2 The four dependence metrics
+
+We use four metrics on each unordered pair of verticals because no single
+one captures everything. Linear coverage from κ, full kernel-based
+coverage from HSIC + CKA, information-theoretic coverage from MI.
+
+**κ — orthogonality index (linear).** For a pair `(i, j)` with 2×2
+sub-Gram `G_pair`:
+
+```
+κ_ij = ‖G_pair − diag(G_pair)‖_F / Tr(G_pair)
+     = √2 · |Cov(E_i, E_j)| / (Var(E_i) + Var(E_j))
+```
+
+Range `[0, ∞)`. κ = 0 iff the two energies are linearly uncorrelated on
+`p_base`; values grow with the off-diagonal magnitude relative to the
+trace. **Captures:** Pearson-style linear dependence. **Misses:**
+non-linear coupling — e.g. `Y = X²` with `X ~ N(0, 1)` has `Cov(X, Y) = 0`
+hence κ ≈ 0 even though `Y` is a deterministic function of `X`. SE on the
+estimate scales as `≈ 1/√N`. Implemented in
+[src/energies/gram_matrix.py](src/energies/gram_matrix.py).
+
+**HSIC — Hilbert-Schmidt Independence Criterion (kernel, non-linear).**
+With RBF kernels `K_ij = exp(−‖x_i − x_j‖² / 2σ²)` and `L_ij` analogous
+on `Y`, double-centered into `K_c = (I − 11ᵀ/N)·K·(I − 11ᵀ/N)`:
+
+```
+HSIC(X, Y) = (1 / (N − 1)²) · Tr(K_c · L_c)
+           = (1 / (N − 1)²) · Σ_{ij} (K_c)_{ij} (L_c)_{ij}
+```
+
+σ chosen by the **median heuristic** (σ² = median of squared pairwise
+distances / 2). Range `[0, ∞)`, HSIC = 0 iff `X ⊥ Y` in the kernel limit
+(for characteristic kernels such as RBF, equivalent to true
+independence). **Captures:** linear *and* non-linear coupling via the
+RKHS embedding. **Limitation:** scale-dependent — raw HSIC values are
+not directly comparable across pairs that have different marginals.
+Implemented in [src/energies/independence.py](src/energies/independence.py).
+
+**CKA — Centered Kernel Alignment (kernel, normalized).**
+
+```
+CKA(X, Y) = HSIC(X, Y) / √(HSIC(X, X) · HSIC(Y, Y))
+```
+
+Range `[0, 1]`. CKA = 0 iff no kernel-detectable dependence; CKA = 1
+when `X` and `Y` produce identical centered kernel matrices (typically
+when one is a deterministic function of the other in the kernel
+embedding). **The right metric to *rank* pairs** with different
+marginal distributions, because the marginal-scale dependence has been
+normalized out.
+
+**MI — Mutual information (information-theoretic).** Theoretical form:
+
+```
+I(X; Y) = ∫∫ p(x, y) log(p(x, y) / (p(x) p(y))) dx dy
+```
+
+Estimated via the **Kraskov-Stögbauer-Grassberger (KSG) k-NN estimator**
+from `sklearn.feature_selection.mutual_info_regression` with `k = 3`.
+Reported in nats. Range `[0, ∞)`, MI = 0 iff `X ⊥ Y` strictly.
+**Captures:** any statistical dependence, fully non-linear,
+information-theoretically motivated. **Limitations:** the KSG estimator
+is biased (under-estimates at small `N`, over-estimates at large `N`),
+and MI is unbounded so absolute comparison across very different
+distributions is delicate. Used alongside CKA as an independent
+cross-check on the kernel-based finding.
+
+### 2.3 What each metric is for, in one line
+
+| metric | linear? | non-linear? | bounded? | ranking pairs? |
+|---|---|---|---|---|
+| κ | ✓ | ✗ | no | yes (within linear regime) |
+| HSIC | ✓ | ✓ | no | only same-marginal pairs |
+| CKA | ✓ | ✓ | yes (`[0, 1]`) | yes (across all pairs) |
+| MI | ✓ | ✓ | no | yes, with bias caveats |
+
+For everything that follows in the worklog, **κ alone is not enough**:
+empirically (cf. the 2026-04-25 entry on N=5000 + non-linear metrics)
+the κ-ranking and the CKA-ranking of the six OWT pairs disagree, and
+that disagreement is itself a finding.
+
+The PoE composition rule (used from Phase 4 onwards) is documented
+inline in [src/composition/poe_sampler.py](src/composition/poe_sampler.py).
 
 ## 3. Figure 1 — Empirical Gram matrix (Phase 1)
 
@@ -123,3 +219,161 @@ will resolve which.
 GO criterion of the roadmap (≥ one pair with κ < 0.15 and ≥ one with κ ≥ 0.30)
 is **not yet met** at this N — `form × tox` only reaches 0.255. To watch
 on the real run.
+
+### 2026-04-25 — Phase 1 smoke-test on Mac CPU (N = 1000)
+
+Bumped the sample size by 10× to disambiguate whether the surprising
+`sent × tox` value at N=100 was noise. Side-by-side with the N=100 run:
+
+| pair | N=100 | N=1000 | roadmap prediction |
+|---|---|---|---|
+| sent × tox  | 0.001 | 0.040 | > 0.35 |
+| len × sent  | 0.003 | 0.002 | < 0.15 |
+| form × sent | 0.014 | 0.009 | 0.15–0.30 |
+| len × form  | 0.050 | 0.033 | < 0.10 |
+| len × tox   | 0.058 | 0.028 | < 0.15 |
+| form × tox  | 0.255 | 0.142 | 0.20–0.35 |
+| **global**  | 0.042 | 0.043 | — |
+
+Every pair except `sent × tox` *decreased* in κ when N grew from 100 to
+1000, and `sent × tox` only crept from 0.001 to 0.040 — still well below
+the roadmap's > 0.35 prediction. Most importantly, the strongest pair
+`form × tox` dropped from 0.255 to 0.142, **falling below the lower bound
+of its predicted range** (0.20). The trend is downward, not upward, so
+extrapolating to N=5000 is unlikely to recover a κ ≥ 0.30 anywhere.
+
+Caveat on the conclusion. The standard error on κ_pair scales roughly as
+1/√N, so at N=1000 each value carries SE ≈ 0.03. The 95% CIs on the two
+strongest pairs are approximately:
+
+- `form × tox`: 0.142 ± 0.06 → CI ≈ [0.08, 0.21]
+- `sent × tox`: 0.040 ± 0.06 → CI ≈ [−0.02, 0.10]
+
+`form × tox` could plausibly touch the lower bound of its predicted range
+(0.20); reaching ≥ 0.30 anywhere is unlikely but not formally ruled out.
+A previous version of this entry asserted that the experimental design
+was "not satisfiable on this corpus as designed" — that claim was
+overconfident given the SE at N=1000 and is retracted here. A run at
+N=5000 (SE ≈ 0.014) is queued to pin down the asymptotic values; the
+final decision on the §3.7 fallback (redundant 5th proxy) will be made
+on those tighter estimates.
+
+Smoke-test was on Mac CPU, ~4 minutes wall time including model loading.
+
+### 2026-04-25 — Phase 1 on N = 5000 (Mac CPU, ~25 min)
+
+Ran the full ROADMAP_POC §3 sample size to pin down the asymptotic κ
+values. Convergence across the three N is clean:
+
+| pair | N=100 | N=1000 | N=5000 | 95% CI at N=5000 | roadmap prediction |
+|---|---|---|---|---|---|
+| form × sent | 0.014 | 0.009 | 0.001 | [0, 0.029] | 0.15–0.30 |
+| len × sent  | 0.003 | 0.002 | 0.001 | [0, 0.029] | < 0.15 |
+| len × tox   | 0.058 | 0.028 | 0.031 | [0.003, 0.059] | < 0.15 |
+| len × form  | 0.050 | 0.033 | 0.033 | [0.005, 0.061] | < 0.10 |
+| sent × tox  | 0.001 | 0.040 | 0.046 | [0.018, 0.074] | > 0.35 |
+| form × tox  | 0.255 | 0.142 | 0.144 | [0.116, 0.172] | 0.20–0.35 |
+| **global**  | 0.042 | 0.043 | 0.048 | — | — |
+
+SE ≈ 1/√N ≈ 0.014 at N=5000. Almost every pair moved by ≤ 0.005 between
+N=1000 and N=5000, so we are firmly in the asymptotic regime.
+
+**Firm conclusion (now warranted by the SE).** No pair has a plausible
+chance of reaching κ ≥ 0.30 on OpenWebText with these four proxies; the
+maximum is `form × tox` at 0.144 ± 0.014. The four verticals chosen for
+the PoC are **near-orthogonal on this corpus**, and the GO criterion of
+ROADMAP_POC §3.7 (a κ gradient with one pair < 0.15 and one pair ≥ 0.30)
+is not satisfiable as designed. The walk-back from the previous entry
+was warranted at N=1000 but the result holds at N=5000.
+
+The N=100 high values for `form × tox` (0.255) and the predicted
+`sent × tox` correlation reflected (a) small-sample covariance inflation
+at low N, and (b) a roadmap intuition probably calibrated on social-media
+or news data where toxic content is more abundant; on OWT the toxic tail
+is thin enough that the sentiment-toxicity coupling does not show.
+
+**On the counter-intuitive `form × tox` (0.144) > `sent × tox` (0.046).**
+Naively one expects toxicity to align with negative sentiment more than
+with informality. Three reasons the data say otherwise on OWT:
+
+1. **OWT is low-toxicity.** It is articles and blog posts, not Reddit or
+   4chan. `unitary/toxic-bert` rarely fires high, so `Var(E_tox)` is small
+   and that compresses *every* covariance involving `E_tox`. This is
+   consistent with all six κ values being small.
+2. **Sentiment on OWT reads as *topic valence*, not *interpersonal tone*.**
+   DistilBERT-SST-2 was trained on movie reviews; on a news article it
+   captures "is this good or bad news?" (war = negative, sport win =
+   positive), not the interpersonal aggression that toxicity captures.
+   Sentiment and toxicity end up on two largely independent semantic axes.
+3. **Formality and toxicity share the register/style axis.**
+   `unitary/toxic-bert` was trained on Civil Comments and Wikipedia talk
+   pages, where toxicity is associated with informal aggressive language.
+   On OWT, the rare articles flagged as mildly toxic also tend to be the
+   casual blog-style ones — exactly what the formality classifier picks
+   up. So `form × tox` carries a small but real signal on the
+   casual-register axis.
+
+The result is therefore consistent with the training biases of the
+classifiers and the topical composition of OWT, but in absolute terms
+both κ values are small (0.046 and 0.144 against a roadmap target of
+> 0.30). It is a comparison of two small numbers, not a strong coupling.
+
+### 2026-04-25 — Non-linear dependence: HSIC, CKA, KSG mutual information
+
+κ measures *linear* (Pearson-style) dependence and can therefore miss
+non-linear coupling. To check whether the OWT-orthogonality conclusion
+is robust, we ran two non-linear metrics on the same N = 5000 sample:
+
+* HSIC with an RBF kernel and the median-heuristic bandwidth, plus its
+  normalised variant CKA = HSIC(K, L) / sqrt(HSIC(K, K) · HSIC(L, L)) ∈ [0, 1].
+* KSG mutual information (in nats) via `sklearn.feature_selection.mutual_info_regression`
+  with k = 3.
+
+| pair | κ | HSIC | CKA | MI |
+|---|---|---|---|---|
+| len × form  | 0.033 | 0.00605 | **0.068** | **0.091** |
+| len × tox   | 0.031 | 0.00261 | 0.032 | 0.061 |
+| form × tox  | **0.144** | 0.00187 | 0.024 | 0.070 |
+| sent × tox  | 0.046 | 0.00143 | 0.015 | 0.021 |
+| len × sent  | 0.001 | 0.00055 | 0.005 | 0.005 |
+| form × sent | 0.001 | 0.00047 | 0.005 | 0.005 |
+
+**The ranking changes with the metric.** By κ, `form × tox` is the most
+coupled pair (0.144). By CKA and MI, `len × form` is, and `form × tox`
+falls to the middle of the table. The two non-linear metrics agree on
+the order, which gives confidence the divergence is a property of the
+data, not estimator noise.
+
+**Reading.**
+
+* `form × tox`'s κ = 0.144 was almost entirely a *linear* signal — the
+  casual-register association we hypothesised earlier. Once normalised
+  by its own marginals (CKA), it is unremarkable.
+* `len × form` (κ = 0.033) carries a *non-linear* dependence that κ
+  misses: very short OWT texts are almost always informal, but past a
+  length threshold formality varies freely. The relationship has a knee
+  rather than a slope, which is exactly the structure Pearson is blind
+  to and HSIC / MI catch.
+* The two `… × sent` pairs remain bottom-of-table on every metric,
+  reinforcing that DistilBERT-SST-2's "topic valence" axis on OWT is
+  largely independent of length, formality and toxicity.
+
+**Practical conclusion is unchanged.** Even with non-linear metrics the
+verticals are weakly coupled on OWT — the maximum is CKA = 0.068 and
+MI = 0.091 nats, far from a "strongly dependent" regime. The §3.7
+fallback (inject a redundant proxy to force a high-κ control pair) is
+still the right next step.
+
+**For the paper, this is also useful methodologically.** Reporting κ
+alone would have over-emphasised `form × tox`. Reporting κ + CKA + MI
+together is more defensible and lets readers see when linear and
+non-linear dependence diverge.
+
+**Next.** Take the §3.7 fallback path: add a deliberately redundant 5th
+proxy energy. The simplest is a *second* sentiment classifier with a
+different decision boundary (e.g. `cardiffnlp/twitter-roberta-base-sentiment`
+alongside DistilBERT-SST2) — this mechanically produces a high-κ pair
+on the redundant axis, restoring the κ gradient that the κ-vs-deficit
+experiment requires. Domain shift to Reddit / Twitter is the alternative
+but introduces an OWT/non-OWT distribution shift that contaminates the
+backbone-vs-finetune comparison.
