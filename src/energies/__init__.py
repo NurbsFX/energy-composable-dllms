@@ -3,6 +3,7 @@ from .proxies import (
     FormalityEnergy,
     LengthEnergy,
     SentimentEnergy,
+    SentimentEnergyV2,
     ToxicityEnergy,
     build_default_energies,
 )
@@ -12,6 +13,7 @@ __all__ = [
     "LengthEnergy",
     "FormalityEnergy",
     "SentimentEnergy",
+    "SentimentEnergyV2",
     "ToxicityEnergy",
     "build_default_energies",
 ]
