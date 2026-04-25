@@ -417,6 +417,39 @@ on the threshold. A more comfortable margin (κ ≈ 0.5+) would come from
 a sentiment classifier with a more different decision boundary. To keep
 in mind for any future iteration on the proxy set.
 
+### 2026-04-26 — Phases 3, 4, 4.5 implemented (no GPU run yet)
+
+All previously skeleton-only modules now have working implementations:
+
+* **Phase 3** — `train_expert.train()` runs LoRA fine-tuning through
+  `dllm.MDLMTrainer`, with frozen embeddings and the EOS-padding
+  collator. Saves only the adapter to `artifacts/checkpoints/<name>/`.
+* **Phase 4** — `PoESampler` plugs a PoE-composition wrapper into
+  dllm's `MDLMSampler`; the λ=0 non-regression test is in place.
+  `merge_loras` builds the naive baseline by linearly interpolating
+  LoRA A/B matrices.
+* **Phase 4.5 Test 2** — paired-sample MDLM ELBO estimator + log-log
+  scatter driver.
+* **Plan-B Test 1** — `build_intersection_dataset` + a separate train
+  script for the intersection-trained 7th expert + a
+  Kolmogorov-Smirnov / Welch t-test check against PoE(a, b).
+* **Plan-B λ sweep** — `{0, 0.5, 1, 1.5, 2}` extension in `CONFIGS`.
+
+Orchestration scripts for phases 3.5, 4, 4.5 and Plan-B Test 1 all
+present, importable, and lint-clean. **Not yet executed**: every script
+that calls `dllm.utils.get_model(...)` requires a GPU pod (the
+`kuleshov-group/mdlm-owt` checkpoint plus the six classifier-backed
+proxies do not fit a Mac CPU run in any reasonable time).
+
+CI is green; the test gate covers the numerical helpers (40 tests on
+Gram matrix, κ, HSIC/CKA/MI, Spearman, joint satisfaction, bootstrap
+fits, jackknife, concreteness lookup, label-fallback) and the
+`scripts/setup_dllm.sh` workaround is documented for fresh pods.
+
+Next step is the GPU pod itself: provision, run `00_setup_runpod.sh`,
+then `02 → 03 → 03b → 04 → 05 → 06 → 06b → 07 → 08`. Estimated cost
+per Plan B is ~€25–35 of the €100 budget.
+
 ### 2026-04-25 — Phase 1 with 6 proxies (drop tox, add conc + topic)
 
 Refactored the proxy set following the discussion of the

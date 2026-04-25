@@ -110,6 +110,50 @@ MIT — see [LICENSE](LICENSE).
 Running log of structural / dependency / convention changes. Per-phase
 experimental results live in [REPORT.md](REPORT.md).
 
+### 2026-04-26 — Phase 3 / 4 / 4.5 implementation + Plan-B Test 1
+
+End-to-end implementations of all the previously skeleton-only paths so
+the next step is purely "run on a GPU pod":
+
+- [src/training/train_expert.py](src/training/train_expert.py): LoRA
+  fine-tuning loop on top of `dllm.MDLMTrainer`, with frozen embeddings
+  and the EOS-padding collator.
+- [src/composition/poe_sampler.py](src/composition/poe_sampler.py):
+  PoESampler reuses dllm's MDLMSampler with a small wrapper that returns
+  PoE-composed logits (`base + Σ λ_i · (expert_i − base)`); ships the
+  λ=0 non-regression test.
+- [src/composition/baselines.py](src/composition/baselines.py):
+  `merge_loras` builds a third adapter from a linear combo of LoRA A/B
+  matrices for the naive-merge baseline.
+- [src/eval/poe_formula_check.py](src/eval/poe_formula_check.py):
+  paired-sample MDLM ELBO log-ratio estimator + `check_poe_formula`
+  driver for Phase 4.5 Test 2.
+- [src/eval/scoring.py](src/eval/scoring.py): `SampleScorer` runs the
+  six proxies + GPT-2 PPL + distinct-2 in one call. SampleRecord is now
+  schema-agnostic (proxy_scores is a dict, summarize() looks up by key).
+- [src/data/build_datasets.py](src/data/build_datasets.py):
+  `build_intersection_dataset` writes documents that pass *both*
+  vertical filters; used by Plan-B Test 1.
+
+Orchestration scripts (numbered to match the roadmap phases):
+[`04_validate_experts.py`](scripts/04_validate_experts.py),
+[`05_run_composition.py`](scripts/05_run_composition.py) (with the
+Plan-B-extended λ sweep `{0, 0.5, 1, 1.5, 2}`),
+[`06_poe_formula_check.py`](scripts/06_poe_formula_check.py),
+[`07_n3_extension.py`](scripts/07_n3_extension.py),
+[`03b_train_intersection_expert.py`](scripts/03b_train_intersection_expert.py)
+and [`06b_test1_intersection_check.py`](scripts/06b_test1_intersection_check.py).
+
+Tooling:
+- [scripts/setup_dllm.sh](scripts/setup_dllm.sh) works around an
+  upstream packaging bug in ZHZisZZ/dllm
+  (`packages = ["dllm"]` drops every subpackage) and trims the eager
+  imports of the optional pipelines (RL via trl, eval via lm-eval) we
+  do not use. `00_setup_runpod.sh` chains it after `pip install`.
+- CI install line gets `pandas` (Brysbaert TSV/XLSX loader) and
+  `test_length_energy_zero_at_target` is now `pytest.importorskip` on
+  `transformers` so the gate stays light.
+
 ### 2026-04-25 — Non-linear dependence metrics (HSIC, CKA, MI)
 
 - New module [src/energies/independence.py](src/energies/independence.py)
