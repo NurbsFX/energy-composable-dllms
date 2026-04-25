@@ -1,0 +1,101 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# --- Virtualenvs ---
+.venv/
+venv/
+env/
+ENV/
+
+# --- Environment / secrets ---
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+
+# --- Editors / OS ---
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# --- AI dev tooling (kept out of a public research repo) ---
+.claude/
+.cursor/
+.aider*
+.continue/
+.windsurf*
+
+# --- Tooling caches ---
+.ruff_cache/
+.mypy_cache/
+.pytype/
+.python-version
+
+# --- Stray runtime files ---
+*.log
+nohup.out
+tmp/
+scratch/
+outputs/
+
+# --- ML / experiment tracking ---
+wandb/
+mlruns/
+.cache/
+.huggingface/
+checkpoints/
+runs/
+
+# --- Notebooks ---
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# --- Project artifacts ---
+# Big binary outputs are gitignored; plots and small JSON metrics are kept.
+artifacts/checkpoints/*
+artifacts/datasets/*
+artifacts/samples/*
+artifacts/cache/
+artifacts/*.bin
+artifacts/*.pt
+artifacts/*.safetensors
+artifacts/*.parquet
+artifacts/*.arrow
+!artifacts/checkpoints/.gitkeep
+!artifacts/datasets/.gitkeep
+!artifacts/samples/.gitkeep
+
+# --- Test / coverage ---
+.coverage
+.pytest_cache/
+htmlcov/
+.tox/
+.nox/
+
+# --- Local-only docs (not pushed) ---
+ROADMAP_POC.md
+THEORY.md

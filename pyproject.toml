@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "composable-dllms"
+version = "0.1.0"
+description = "Composable diffusion language models via energy-based Product of Experts"
+readme = "README.md"
+requires-python = ">=3.10,<3.13"
+license = { text = "MIT" }
+authors = [{ name = "Bruno Kalfa", email = "bruno@alloreview.com" }]
+
+dependencies = [
+    "torch>=2.1.0,<2.5.0",
+    "transformers>=4.40.0,<4.50.0",
+    "peft>=0.10.0",
+    "accelerate>=0.30.0",
+    "datasets>=2.18.0",
+    "tokenizers>=0.15.0",
+    "huggingface_hub>=0.23.0",
+    "safetensors>=0.4.0",
+    "dllm @ git+https://github.com/ZHZisZZ/dllm.git",
+    "numpy>=1.24.0",
+    "scipy>=1.10.0",
+    "pandas>=2.0.0",
+    "scikit-learn>=1.3.0",
+    "einops>=0.7.0",
+    "matplotlib>=3.7.0",
+    "seaborn>=0.13.0",
+    "tqdm>=4.65.0",
+    "typer>=0.12.0",
+    "wandb>=0.16.0",
+]
+
+[project.optional-dependencies]
+dev = ["ruff>=0.4.0", "pytest>=8.0.0", "pre-commit>=3.7.0"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+exclude = ["scripts*", "artifacts*", "tests*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+# B008: typer.Option/Argument as default is the idiomatic typer pattern.
+ignore = ["E501", "B008"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra -q"

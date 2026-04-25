@@ -1,0 +1,47 @@
+#!/usr/bin/env python
+"""Fine-tune the four LoRA experts (sequentially or one at a time)."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import typer
+
+from src.training.train_expert import ExpertTrainingConfig, train
+
+app = typer.Typer(add_completion=False)
+
+
+EXPERTS: dict[str, str] = {
+    "long": "artifacts/datasets/long.jsonl",
+    "formal": "artifacts/datasets/formal.jsonl",
+    "positive": "artifacts/datasets/positive.jsonl",
+    "nontoxic": "artifacts/datasets/nontoxic.jsonl",
+}
+
+
+@app.command()
+def main(
+    only: str | None = typer.Option(None, help="Train one expert by name."),
+    output_dir: Path = Path("artifacts/checkpoints"),
+    num_steps: int = 2500,
+) -> None:
+    if only is not None and only not in EXPERTS:
+        raise typer.BadParameter(f"unknown expert: {only}")
+    todo = {only: EXPERTS[only]} if only else EXPERTS
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    for name, train_jsonl in todo.items():
+        cfg = ExpertTrainingConfig(
+            expert_name=name,
+            train_jsonl=train_jsonl,
+            output_dir=output_dir,
+            num_steps=num_steps,
+            wandb_run_name=f"expert-{name}",
+        )
+        ckpt = train(cfg)
+        typer.echo(f"trained {name} → {ckpt}")
+
+
+if __name__ == "__main__":
+    app()
