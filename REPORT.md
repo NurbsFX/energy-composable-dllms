@@ -369,6 +369,54 @@ alone would have over-emphasised `form × tox`. Reporting κ + CKA + MI
 together is more defensible and lets readers see when linear and
 non-linear dependence diverge.
 
+### 2026-04-25 — Phase 1 with 5 proxies (§3.7 fallback path)
+
+Added `SentimentEnergyV2` based on `cardiffnlp/twitter-roberta-base-sentiment-latest`
+to anchor a high-κ pair (`sent × sent2`) as suggested by ROADMAP §3.7.
+Also pinned `max_length=512` in the HF pipeline construction so any
+classifier whose tokenizer config does not declare `model_max_length`
+still gets its inputs truncated correctly (cardiffnlp was the trigger;
+the four base classifiers worked by accident).
+
+Re-ran Phase 1 on the same N=5000 OWT sample with the resulting 5×5
+Gram matrix:
+
+| pair | κ | HSIC | CKA | MI |
+|---|---|---|---|---|
+| **sent × sent2** | **0.300** | 0.02448 | **0.211** | **0.225** |
+| len × form  | 0.033 | 0.00605 | 0.068 | 0.091 |
+| len × tox   | 0.031 | 0.00261 | 0.032 | 0.061 |
+| form × sent2| 0.115 | 0.00274 | 0.029 | 0.031 |
+| form × tox  | 0.144 | 0.00187 | 0.024 | 0.070 |
+| len × sent2 | 0.011 | 0.00206 | 0.021 | 0.045 |
+| sent2 × tox | 0.056 | 0.00138 | 0.016 | 0.018 |
+| sent × tox  | 0.046 | 0.00143 | 0.015 | 0.021 |
+| len × sent  | 0.001 | 0.00055 | 0.005 | 0.005 |
+| form × sent | 0.001 | 0.00047 | 0.005 | 0.005 |
+
+**The fallback works.** `sent × sent2` is top on every metric and lands
+exactly on the roadmap GO threshold (κ ≥ 0.30). The ranking by κ, CKA,
+MI agree on the top spot — unlike the earlier 4-proxy run where κ and
+CKA disagreed on which pair was most coupled.
+
+**Gradient now suitable for Figure 5.** 1 high pair (sent×sent2 ≈ 0.30),
+2 medium (form×tox 0.144, form×sent2 0.115), 7 low pairs (< 0.06). Ten
+points span roughly two orders of magnitude on κ — enough to fit a
+slope with usable statistical power, even if the high-κ end is anchored
+by a single point.
+
+**Side observation on `form × sent2`.** With κ = 0.115 it is the second
+most-coupled pair on κ, while `form × sent` was at κ = 0.001 with the
+same formality classifier. Twitter-RoBERTa likely learnt an
+informality ↔ negative sentiment association that DistilBERT-SST-2
+(movie reviews) does not. CKA is much smaller (0.029), so the coupling
+is essentially linear — no curved structure beyond the Pearson signal.
+
+**Open question on the high-κ anchor.** sent×sent2 = 0.300 lands *just*
+on the threshold. A more comfortable margin (κ ≈ 0.5+) would come from
+a sentiment classifier with a more different decision boundary. To keep
+in mind for any future iteration on the proxy set.
+
 **Next.** Take the §3.7 fallback path: add a deliberately redundant 5th
 proxy energy. The simplest is a *second* sentiment classifier with a
 different decision boundary (e.g. `cardiffnlp/twitter-roberta-base-sentiment`

@@ -1,6 +1,6 @@
 import numpy as np
 
-from src.energies.independence import compute_independence, hsic, mutual_info
+from src.energies.independence import compute_independence, hsic, mutual_info, spearman
 
 
 def test_hsic_independent_gaussians_is_small():
@@ -57,8 +57,11 @@ def test_compute_independence_returns_all_pairs_with_cka_in_unit_interval():
     assert set(res.pair_hsic.keys()) == expected
     assert set(res.pair_cka.keys()) == expected
     assert set(res.pair_mi.keys()) == expected
+    assert set(res.pair_spearman.keys()) == expected
     for v in res.pair_cka.values():
         assert -0.05 <= v <= 1.0  # CKA must lie in [0, 1] up to rounding
+    for v in res.pair_spearman.values():
+        assert -1.0 <= v <= 1.0
 
 
 def test_compute_independence_rejects_mismatched_names():
@@ -66,3 +69,29 @@ def test_compute_independence_rejects_mismatched_names():
 
     with pytest.raises(ValueError):
         compute_independence(np.zeros((10, 3)), ["a", "b"])
+
+
+def test_spearman_independent_gaussians_is_small():
+    rng = np.random.default_rng(0)
+    x = rng.standard_normal(500)
+    y = rng.standard_normal(500)
+    assert abs(spearman(x, y)) < 0.15
+
+
+def test_spearman_detects_monotone_nonlinear_where_pearson_compresses():
+    """Y = exp(X) is monotone but very non-linear. Spearman ≈ 1; Pearson < 1."""
+    rng = np.random.default_rng(0)
+    x = rng.uniform(0, 5, 500)
+    y = np.exp(x) + 0.001 * rng.standard_normal(500)
+    pearson = float(np.corrcoef(x, y)[0, 1])
+    rho = spearman(x, y)
+    assert rho > 0.99  # Spearman saturates at the monotone limit
+    assert pearson < rho  # Pearson is compressed by the curvature
+
+
+def test_spearman_misses_symmetric_quadratic():
+    """Y = X² with X centred is non-monotone: Spearman ≈ 0 (HSIC/MI catch it)."""
+    rng = np.random.default_rng(0)
+    x = rng.standard_normal(500)
+    y = x**2
+    assert abs(spearman(x, y)) < 0.15

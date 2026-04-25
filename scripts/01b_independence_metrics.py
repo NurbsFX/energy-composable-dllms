@@ -35,13 +35,14 @@ def main(
 
     out_json.write_text(json.dumps(result.to_json(), indent=2))
 
-    typer.echo("\n  pair          |    κ     |   HSIC    |   CKA   |    MI   ")
-    typer.echo("  " + "-" * 60)
+    typer.echo("\n  pair            |    κ     |  Spear  |   HSIC    |   CKA   |    MI   ")
+    typer.echo("  " + "-" * 72)
     for pair in sorted(result.pair_cka.keys(), key=lambda p: -result.pair_cka[p]):
         a, b = pair
         typer.echo(
-            f"  {a:>4} × {b:<6} | "
+            f"  {a:>5} × {b:<7} | "
             f"{gram.pair_kappas[pair]:6.3f}  | "
+            f"{result.pair_spearman[pair]:+5.2f}  | "
             f"{result.pair_hsic[pair]:8.5f} | "
             f"{result.pair_cka[pair]:6.3f}  | "
             f"{result.pair_mi[pair]:6.3f}"
