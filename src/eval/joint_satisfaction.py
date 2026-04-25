@@ -11,10 +11,7 @@ import numpy as np
 class SampleRecord:
     text: str
     length: int
-    score_len: float
-    score_form: float
-    score_sent: float
-    score_tox: float
+    proxy_scores: dict[str, float]  # keyed by proxy name (len, form, sent, …)
     ppl_gpt2: float
     distinct_2: float
 
@@ -56,8 +53,8 @@ def summarize(
         return ConfigSummary(config_name, 0, 0.0, 0.0, 0.0, float("nan"), float("nan"))
 
     a_key, b_key = score_keys
-    sat_a = np.array([getattr(s, f"score_{a_key}") > thresholds[a_key] for s in samples])
-    sat_b = np.array([getattr(s, f"score_{b_key}") > thresholds[b_key] for s in samples])
+    sat_a = np.array([s.proxy_scores[a_key] > thresholds[a_key] for s in samples])
+    sat_b = np.array([s.proxy_scores[b_key] > thresholds[b_key] for s in samples])
 
     distinct_2 = float(np.mean([s.distinct_2 for s in samples]))
     ppl = float(np.mean([s.ppl_gpt2 for s in samples]))

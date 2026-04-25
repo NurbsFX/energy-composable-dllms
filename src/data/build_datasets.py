@@ -60,6 +60,105 @@ DEFAULT_VERTICAL_SPECS: list[VerticalSpec] = [
 ]
 
 
+def build_intersection_dataset(
+    spec_a: VerticalSpec,
+    spec_b: VerticalSpec,
+    *,
+    out_path: str | Path,
+    energies: dict[str, Energy] | None = None,
+    target_size: int = 20_000,
+    streaming: bool = True,
+    max_examples_seen: int = 5_000_000,
+    text_max_chars: int = 4096,
+    batch_size: int = 32,
+) -> Path:
+    """Stream OWT and write documents that pass *both* ``spec_a`` and ``spec_b``.
+
+    Used for ROADMAP §7.4 / Plan-B Test 1: train a single expert on the
+    intersection corpus (e.g. long ∩ formal) and compare its sampling
+    distribution to PoE(long, formal). If PoE composition is exact, the
+    two distributions should be statistically indistinguishable.
+    """
+    from datasets import load_dataset
+
+    out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    energies = energies or build_default_energies()
+
+    proxy_names = list(energies.keys())
+    keys_needed = {spec_a.energy_key, spec_b.energy_key}
+    cross_sums = dict.fromkeys(proxy_names, 0.0)
+    count = 0
+
+    pbar = tqdm(total=target_size, desc=f"intersection {spec_a.name}∩{spec_b.name}")
+    batch: list[str] = []
+    seen = 0
+
+    def _flush() -> None:
+        nonlocal count
+        if not batch:
+            return
+        signals = {
+            k: energies[k].raw_signals_batch(batch, batch_size=batch_size) for k in keys_needed
+        }
+        accept = [
+            i
+            for i in range(len(batch))
+            if signals[spec_a.energy_key][i] > spec_a.keep_above
+            and signals[spec_b.energy_key][i] > spec_b.keep_above
+        ]
+        if accept:
+            # Score the rest of the proxies on the whole batch for the cross-row.
+            for k in proxy_names:
+                if k not in signals:
+                    signals[k] = energies[k].raw_signals_batch(batch, batch_size=batch_size)
+            with out_path.open("a", encoding="utf-8") as f:
+                for i in accept:
+                    if count >= target_size:
+                        break
+                    f.write(json.dumps({"text": batch[i]}) + "\n")
+                    count += 1
+                    pbar.update(1)
+                    for k in proxy_names:
+                        cross_sums[k] += signals[k][i]
+        batch.clear()
+
+    out_path.write_text("")  # truncate
+    ds = load_dataset("Skylion007/openwebtext", split="train", streaming=streaming)
+    for ex in ds:
+        if seen >= max_examples_seen or count >= target_size:
+            break
+        text = ex.get("text")
+        if not isinstance(text, str) or not text.strip():
+            continue
+        batch.append(text[:text_max_chars])
+        seen += 1
+        if len(batch) >= batch_size:
+            _flush()
+    _flush()
+    pbar.close()
+
+    # Sidecar: per-proxy mean over accepted docs.
+    summary_path = out_path.with_suffix(".cross.json")
+    summary_path.write_text(
+        json.dumps(
+            {
+                "intersection": [spec_a.name, spec_b.name],
+                "thresholds": {
+                    spec_a.energy_key: spec_a.keep_above,
+                    spec_b.energy_key: spec_b.keep_above,
+                },
+                "count": count,
+                "mean_raw_signal": {
+                    k: (v / count if count else 0.0) for k, v in cross_sums.items()
+                },
+            },
+            indent=2,
+        )
+    )
+    return out_path
+
+
 def build_all(
     *,
     out_dir: str | Path = "artifacts/datasets",

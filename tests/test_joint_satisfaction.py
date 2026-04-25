@@ -30,10 +30,7 @@ def _record(form: float, sent: float) -> SampleRecord:
     return SampleRecord(
         text="",
         length=10,
-        score_len=0.0,
-        score_form=form,
-        score_sent=sent,
-        score_tox=0.0,
+        proxy_scores={"len": 0.0, "form": form, "sent": sent, "tox": 0.0},
         ppl_gpt2=10.0,
         distinct_2=0.5,
     )
