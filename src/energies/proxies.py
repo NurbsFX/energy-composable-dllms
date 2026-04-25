@@ -28,6 +28,28 @@ class Energy(ABC):
     @abstractmethod
     def __call__(self, text: str) -> float: ...
 
+    def raw_signal(self, text: str) -> float:
+        """Return the raw underlying signal that drives the energy.
+
+        For ``LengthEnergy`` this is the token count; for classifier-backed
+        energies it is the target-class probability in ``[0, 1]``; for
+        ``ConcretenessEnergy`` it is the mean concreteness rating in
+        ``[1, 5]``. Used by data-filtering pipelines (Phase 2) which need
+        an interpretable threshold rather than the energy itself.
+        """
+        raise NotImplementedError
+
+    def raw_signals_batch(self, texts: list[str], *, batch_size: int = 32) -> list[float]:
+        """Vectorised version of :meth:`raw_signal` for a list of texts.
+
+        Default implementation is a Python loop over :meth:`raw_signal`.
+        Subclasses backed by neural classifiers override this to feed the
+        pipeline a real batch, which is much faster on GPU. ``batch_size``
+        only matters for those overrides.
+        """
+        del batch_size  # unused in the default loop fallback
+        return [self.raw_signal(t) for t in texts]
+
 
 class LengthEnergy(Energy):
     """E_len(x) = |log(L(x) / L_star)| with L(x) the GPT-2 token count."""
@@ -43,6 +65,10 @@ class LengthEnergy(Energy):
     def __call__(self, text: str) -> float:
         n = max(len(self._tok.encode(text, add_special_tokens=False)), 1)
         return float(abs(np.log(n / self.L_star)))
+
+    def raw_signal(self, text: str) -> float:
+        """Token count under the GPT-2 tokenizer."""
+        return float(len(self._tok.encode(text, add_special_tokens=False)))
 
 
 class _ClassifierEnergy(Energy):
@@ -90,6 +116,16 @@ class _ClassifierEnergy(Energy):
     def __call__(self, text: str) -> float:
         self._ensure()
         return self._neg_logit(self._prob(self._pipe(text)[0]))
+
+    def raw_signal(self, text: str) -> float:
+        """Probability of the target class according to the underlying classifier."""
+        self._ensure()
+        return self._prob(self._pipe(text)[0])
+
+    def raw_signals_batch(self, texts: list[str], *, batch_size: int = 32) -> list[float]:
+        """Pipe ``texts`` through the classifier in real batches."""
+        self._ensure()
+        return [self._prob(scores) for scores in self._pipe(texts, batch_size=batch_size)]
 
 
 class FormalityEnergy(_ClassifierEnergy):
@@ -216,6 +252,14 @@ class ConcretenessEnergy(Energy):
         if not scores:
             return 0.0
         return -float(np.mean(scores))
+
+    def raw_signal(self, text: str) -> float:
+        """Mean Brysbaert concreteness rating (1=abstract … 5=concrete)."""
+        self._ensure()
+        assert self._scores is not None
+        words = re.findall(r"\b[a-z]+\b", text.lower())
+        scores = [self._scores[w] for w in words if w in self._scores]
+        return float(np.mean(scores)) if scores else 0.0
 
 
 def _load_brysbaert_ratings(path: Path) -> dict[str, float]:

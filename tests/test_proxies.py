@@ -89,3 +89,12 @@ def test_by_label_raises_when_neither_found():
 def test_topic_energy_rejects_unknown_class():
     with pytest.raises(ValueError):
         TopicEnergy(target_class="Politics")
+
+
+def test_raw_signals_batch_default_matches_per_text(toy_brysbaert: Path):
+    """Default :meth:`raw_signals_batch` is just a loop over :meth:`raw_signal`."""
+    e = ConcretenessEnergy(ratings_path=toy_brysbaert)
+    texts = ["rock and idea", "table", "freedom", "xyz"]
+    per_text = [e.raw_signal(t) for t in texts]
+    batched = e.raw_signals_batch(texts)
+    assert per_text == batched
