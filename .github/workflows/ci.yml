@@ -25,12 +25,14 @@ jobs:
 
       # The full requirements.txt pulls torch / transformers / dllm and would
       # take ~10 min; the unit tests only exercise the numerical helpers, so
-      # we install the minimal set here. scikit-learn is needed for the KSG
-      # mutual-information estimator used in src/energies/independence.py.
+      # we install the minimal set here. Each dep below is required by at
+      # least one test:
+      #   * scikit-learn — KSG MI estimator (src/energies/independence.py)
+      #   * pandas       — Brysbaert TSV/XLSX loader (src/energies/proxies.py)
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install ruff pytest numpy scipy scikit-learn
+          python -m pip install ruff pytest numpy scipy scikit-learn pandas
 
       - name: Ruff lint
         run: ruff check src/ scripts/ tests/

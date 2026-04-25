@@ -59,9 +59,8 @@ def test_concreteness_skips_bigrams(toy_brysbaert: Path):
 
 
 def test_length_energy_zero_at_target():
+    pytest.importorskip("transformers", reason="LengthEnergy needs the GPT-2 tokenizer")
     e = LengthEnergy(L_star=10)
-    # Need exactly 10 GPT-2 tokens; pick a string that tokenises to 10.
-    # Easier test: a single-word string has token count > 0, energy is non-negative.
     assert e("hello world") >= 0.0
 
 

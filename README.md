@@ -85,7 +85,8 @@ non-linear effects can be disentangled.
 
 ```bash
 pip install -e ".[dev]"
-pre-commit install   # ruff lint + format on every commit
+./scripts/setup_dllm.sh   # workaround for an upstream packaging bug; see the script header
+pre-commit install        # ruff lint + format on every commit
 pytest
 ```
 

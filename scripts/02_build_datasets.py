@@ -18,10 +18,16 @@ app = typer.Typer(add_completion=False)
 def main(
     out_dir: Path = Path("artifacts/datasets"),
     target_size: int = 80_000,
+    max_examples_seen: int = 5_000_000,
 ) -> None:
     energies = build_default_energies()
     specs = [dataclasses.replace(s, target_size=target_size) for s in DEFAULT_VERTICAL_SPECS]
-    paths = build_all(out_dir=out_dir, energies=energies, specs=specs)
+    paths = build_all(
+        out_dir=out_dir,
+        energies=energies,
+        specs=specs,
+        max_examples_seen=max_examples_seen,
+    )
     for name, path in paths.items():
         typer.echo(f"  {name}: {path}")
 

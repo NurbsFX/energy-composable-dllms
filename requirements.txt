@@ -9,7 +9,8 @@ tokenizers>=0.15.0
 huggingface_hub>=0.23.0
 safetensors>=0.4.0
 
-dllm @ git+https://github.com/ZHZisZZ/dllm.git
+# dllm is installed by scripts/setup_dllm.sh (upstream packaging bug means
+# `pip install git+...` ships only the top-level package).
 
 numpy>=1.24.0
 scipy>=1.10.0

@@ -9,6 +9,9 @@ apt-get install -y --no-install-recommends git tmux htop nvtop curl
 pip install --upgrade pip
 pip install -r requirements.txt
 
+# Workaround: install dllm with all subpackages (upstream packaging bug).
+./scripts/setup_dllm.sh
+
 : "${WANDB_API_KEY:?Set WANDB_API_KEY in pod env}"
 : "${HF_TOKEN:?Set HF_TOKEN in pod env}"
 echo "${WANDB_API_KEY}" | wandb login --relogin

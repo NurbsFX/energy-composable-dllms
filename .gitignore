@@ -62,6 +62,9 @@ tmp/
 scratch/
 outputs/
 
+# --- Vendored upstream code (cloned by scripts/setup_dllm.sh) ---
+external/
+
 # --- ML / experiment tracking ---
 wandb/
 mlruns/
