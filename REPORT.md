@@ -24,11 +24,11 @@ G_ij = Cov(E_i, E_j) = (1/N) Σ_n E_i(x_n) E_j(x_n) − Ē_i · Ē_j
 All four dependence metrics below are computed from this matrix or from
 the full sample matrix `E ∈ ℝ^{N × k}` (k = number of verticals).
 
-### 2.2 The four dependence metrics
+### 2.2 The five dependence metrics
 
-We use four metrics on each unordered pair of verticals because no single
-one captures everything. Linear coverage from κ, full kernel-based
-coverage from HSIC + CKA, information-theoretic coverage from MI.
+We use five metrics on each unordered pair of verticals because no single
+one captures everything. Linear coverage from κ, monotone non-linear
+coverage from Spearman, full non-linear coverage from HSIC / CKA / MI.
 
 **κ — orthogonality index (linear).** For a pair `(i, j)` with 2×2
 sub-Gram `G_pair`:
@@ -45,6 +45,24 @@ non-linear coupling — e.g. `Y = X²` with `X ~ N(0, 1)` has `Cov(X, Y) = 0`
 hence κ ≈ 0 even though `Y` is a deterministic function of `X`. SE on the
 estimate scales as `≈ 1/√N`. Implemented in
 [src/energies/gram_matrix.py](src/energies/gram_matrix.py).
+
+**Spearman — rank correlation (monotone).** Pearson's correlation
+applied to the *ranks* of `x` and `y` rather than their values:
+
+```
+ρ_s(X, Y) = Pearson(rank(X), rank(Y))
+```
+
+Range `[-1, 1]`. ρ_s = ±1 iff `Y` is a monotone function of `X` (linear
+or not — `Y = exp(X)`, `Y = log(X)`, any monotone curve all saturate to
+ρ_s = 1). **Captures:** any monotone dependence — fills the gap between
+κ (linear only) and the kernel/info-theoretic metrics (also non-monotone
+non-linear). **Misses:** non-monotone non-linear dependence — `Y = X²`
+with `X` centred is fully determined by `X` but gives ρ_s ≈ 0; only
+HSIC/CKA/MI can catch that case. **Why bother:** ρ_s is a single line of
+NumPy, robust to outliers (operates on ranks), bounded, and matches what
+reviewers expect from a non-parametric dependence section. Implemented
+in [src/energies/independence.py](src/energies/independence.py).
 
 **HSIC — Hilbert-Schmidt Independence Criterion (kernel, non-linear).**
 With RBF kernels `K_ij = exp(−‖x_i − x_j‖² / 2σ²)` and `L_ij` analogous
@@ -94,12 +112,13 @@ cross-check on the kernel-based finding.
 
 ### 2.3 What each metric is for, in one line
 
-| metric | linear? | non-linear? | bounded? | ranking pairs? |
-|---|---|---|---|---|
-| κ | ✓ | ✗ | no | yes (within linear regime) |
-| HSIC | ✓ | ✓ | no | only same-marginal pairs |
-| CKA | ✓ | ✓ | yes (`[0, 1]`) | yes (across all pairs) |
-| MI | ✓ | ✓ | no | yes, with bias caveats |
+| metric | linear? | monotone non-linear? | non-monotone non-linear? | bounded? | ranking pairs? |
+|---|---|---|---|---|---|
+| κ | ✓ | ✗ | ✗ | no | yes (within linear regime) |
+| Spearman | ✓ | ✓ | ✗ | yes (`[-1, 1]`) | yes |
+| HSIC | ✓ | ✓ | ✓ | no | only same-marginal pairs |
+| CKA | ✓ | ✓ | ✓ | yes (`[0, 1]`) | yes (across all pairs) |
+| MI | ✓ | ✓ | ✓ | no | yes, with bias caveats |
 
 For everything that follows in the worklog, **κ alone is not enough**:
 empirically (cf. the 2026-04-25 entry on N=5000 + non-linear metrics)

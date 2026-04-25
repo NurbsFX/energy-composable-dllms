@@ -34,15 +34,17 @@ Results and figures: [REPORT.md](REPORT.md).
 ## Dependence metrics
 
 The orthogonality assumption underlying the project is operationalised
-by four complementary dependence metrics on the `(N, k)` matrix of
-proxy energies sampled from `p_base`. We use all four because no single
-metric captures everything.
+by five complementary dependence metrics on the `(N, k)` matrix of
+proxy energies sampled from `p_base`. We use all five because no single
+metric captures everything; together they cover linear, monotone
+non-linear, and non-monotone non-linear dependence.
 
 | metric | formula | range | captures | code |
 |---|---|---|---|---|
 | **κ** | `‖G − diag(G)‖_F / Tr(G)` on the empirical covariance `G` | `[0, ∞)` | linear (Pearson) | [gram_matrix.py](src/energies/gram_matrix.py) |
-| **HSIC** | `(1/(N−1)²) · Tr(K_c L_c)` with RBF kernels and the median heuristic for σ | `[0, ∞)` | linear + non-linear | [independence.py](src/energies/independence.py) |
-| **CKA** | `HSIC(X,Y) / √(HSIC(X,X)·HSIC(Y,Y))` | `[0, 1]` | linear + non-linear, normalized | [independence.py](src/energies/independence.py) |
+| **Spearman** | `Pearson(rank(X), rank(Y))` | `[-1, 1]` | linear + monotone non-linear | [independence.py](src/energies/independence.py) |
+| **HSIC** | `(1/(N−1)²) · Tr(K_c L_c)` with RBF kernels and the median heuristic for σ | `[0, ∞)` | full non-linear | [independence.py](src/energies/independence.py) |
+| **CKA** | `HSIC(X,Y) / √(HSIC(X,X)·HSIC(Y,Y))` | `[0, 1]` | full non-linear, normalized | [independence.py](src/energies/independence.py) |
 | **MI** | KSG k-NN estimator of `I(X;Y) = ∫∫ p(x,y) log(p(x,y)/(p(x)p(y))) dxdy` | `[0, ∞)` nats | any dependence, info-theoretic | [independence.py](src/energies/independence.py) |
 
 In words:
@@ -51,10 +53,15 @@ In words:
   measures *only* linear (Pearson-style) covariance. Two variables can
   have κ ≈ 0 and still be deterministically related (`Y = X²` with
   centered `X` is the canonical example).
+- **Spearman** applies Pearson to the *ranks* and therefore catches any
+  monotone dependence — `Y = exp(X)` saturates to `|ρ_s| = 1` while
+  Pearson is compressed by the curvature. It is the chain link between
+  κ (linear only) and the kernel/info-theoretic metrics (also
+  non-monotone). Cheap, robust to outliers, bounded.
 - **HSIC** lifts the variables into a reproducing-kernel Hilbert space
   before measuring covariance, so it sees non-linear coupling that κ
-  misses. It vanishes iff the variables are independent in the kernel
-  limit. Raw HSIC values are scale-dependent.
+  and Spearman miss. It vanishes iff the variables are independent in
+  the kernel limit. Raw HSIC values are scale-dependent.
 - **CKA** is HSIC normalized by its self-similarity terms; it lies in
   `[0, 1]` and is therefore directly comparable across pairs with
   different marginals. **This is the right metric for ranking pairs.**
