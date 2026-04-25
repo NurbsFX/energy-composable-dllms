@@ -72,6 +72,14 @@ MIT — see [LICENSE](LICENSE).
 Running log of structural / dependency / convention changes. Per-phase
 experimental results live in [REPORT.md](REPORT.md).
 
+### 2026-04-25 — Dependency bounds relaxed
+
+- The `dllm` upstream pins `transformers==4.57.0`. Our previous
+  `transformers>=4.40.0,<4.50.0` made resolution impossible. Dropped the
+  upper bound on both `transformers` and `torch` in
+  [pyproject.toml](pyproject.toml) and [requirements.txt](requirements.txt);
+  let `dllm`'s pin drive the version. Caught locally before any GPU time.
+
 ### 2026-04-25 — CI/CD
 
 - GitHub Actions workflow at [.github/workflows/ci.yml](.github/workflows/ci.yml):

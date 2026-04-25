@@ -12,8 +12,11 @@ license = { text = "MIT" }
 authors = [{ name = "Bruno Kalfa", email = "bruno@alloreview.com" }]
 
 dependencies = [
-    "torch>=2.1.0,<2.5.0",
-    "transformers>=4.40.0,<4.50.0",
+    # Bounds are intentionally loose: dllm pins transformers==4.57.0, and
+    # tightening here only causes resolution conflicts. Re-tighten if a
+    # future regression motivates it.
+    "torch>=2.1.0",
+    "transformers>=4.40.0",
     "peft>=0.10.0",
     "accelerate>=0.30.0",
     "datasets>=2.18.0",

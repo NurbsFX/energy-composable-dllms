@@ -86,3 +86,40 @@ numerical helpers, added `LICENSE`. No experiments run.
 Added GitHub Actions (ruff + pytest on push/PR) and pre-commit hooks
 (ruff lint+format and standard hygiene). Codebase is now gated by
 automated checks on every commit. No experiments run.
+
+### 2026-04-25 — Phase 1 smoke-test on Mac CPU (N = 100)
+
+Validated the proxy stack end-to-end on a 100-sample OWT slice before
+spending GPU time. All four classifiers downloaded, instantiated and
+parsed their labels without manual intervention:
+
+- `s-nlp/roberta-base-formality-ranker` → label `formal` resolved.
+- `distilbert-base-uncased-finetuned-sst-2-english` → label `POSITIVE` resolved.
+- `unitary/toxic-bert` → label `toxic` resolved (we read `1 − P(toxic)` for the non-toxic energy).
+- GPT-2 tokenizer → length energy.
+
+Produced `artifacts/gram_matrix.json` and the heatmap + pair-scatter plots.
+
+Pairwise κ on N = 100 (preliminary, **not** the Phase 1 result; the Gram
+matrix only converges at N ≫ 100):
+
+| pair | κ | roadmap prediction |
+|---|---|---|
+| sent × tox  | 0.001 | > 0.35 |
+| len × sent  | 0.003 | < 0.15 |
+| form × sent | 0.014 | 0.15–0.30 |
+| len × form  | 0.050 | < 0.10  |
+| len × tox   | 0.058 | < 0.15 |
+| form × tox  | 0.255 | 0.20–0.35 |
+| **global**  | **0.042** | — |
+
+The biggest surprises are `sent × tox` and `form × sent`, both far below
+their predicted κ. Two plausible explanations: (a) N = 100 noise — Cov is
+high-variance with so few samples; (b) on OWT specifically, true toxic
+content is rare enough that the sentiment-toxicity coupling we expect from
+Twitter / social data does not show up. The full N = 5000 run on a GPU pod
+will resolve which.
+
+GO criterion of the roadmap (≥ one pair with κ < 0.15 and ≥ one with κ ≥ 0.30)
+is **not yet met** at this N — `form × tox` only reaches 0.255. To watch
+on the real run.
