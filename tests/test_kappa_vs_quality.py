@@ -88,9 +88,9 @@ def test_jackknife_flags_high_leverage_point():
     res = fit(pts, n_bootstrap=200, seed=0)
     r_lo, r_hi = res.jackknife_r_range
     # Removing the high-leverage point should drop r substantially.
-    assert (
-        r_lo < res.pearson_r - 0.3
-    ), f"jackknife should flag the high-leverage point; got r_lo={r_lo:.3f}, full r={res.pearson_r:.3f}"
+    assert r_lo < res.pearson_r - 0.3, (
+        f"jackknife should flag the high-leverage point; got r_lo={r_lo:.3f}, full r={res.pearson_r:.3f}"
+    )
 
 
 def test_jackknife_returns_one_entry_per_dropped_point():
