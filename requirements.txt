@@ -2,8 +2,13 @@
 # and several HF model checkpoints we load (kuleshov-group/mdlm-owt etc.)
 # still ship as pytorch_model.bin rather than safetensors, so we hit that
 # code path. RunPod's PyTorch 2.4 image is therefore not enough; require
-# 2.6+ explicitly.
+# 2.6+ explicitly. torchvision must be pulled too because transformers
+# imports it eagerly at first `pipeline(...)` call (lazy-loaded image
+# pipelines pull torchvision unconditionally) — and an old torchvision
+# bound to an older torch ABI breaks with `RuntimeError: operator
+# torchvision::nms does not exist` on a fresh torch upgrade.
 torch>=2.6
+torchvision>=0.21
 # These six are pinned to match dllm's hard pins (its pyproject.toml uses ==).
 # Earlier we left them as `>=` and pip happily picked transformers 5.x once
 # released, which dllm cannot import — it relies on 4.x internals.

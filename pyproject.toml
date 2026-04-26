@@ -13,7 +13,10 @@ authors = [{ name = "Bruno Kalfa", email = "bruno@alloreview.com" }]
 
 dependencies = [
     # transformers 4.57+ refuses torch.load on torch < 2.6 (CVE-2025-32434).
+    # torchvision must follow the torch upgrade to avoid an ABI mismatch
+    # at first `pipeline(...)` call.
     "torch>=2.6",
+    "torchvision>=0.21",
     # The six pins below match dllm's hard pins (its pyproject.toml uses ==).
     # Leaving them as `>=` lets pip pick transformers 5.x once released,
     # which dllm cannot import.
