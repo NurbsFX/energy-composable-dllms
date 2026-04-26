@@ -1,4 +1,9 @@
-torch>=2.1.0
+# transformers 4.57+ refuses torch.load on torch < 2.6 (CVE-2025-32434),
+# and several HF model checkpoints we load (kuleshov-group/mdlm-owt etc.)
+# still ship as pytorch_model.bin rather than safetensors, so we hit that
+# code path. RunPod's PyTorch 2.4 image is therefore not enough; require
+# 2.6+ explicitly.
+torch>=2.6
 # These six are pinned to match dllm's hard pins (its pyproject.toml uses ==).
 # Earlier we left them as `>=` and pip happily picked transformers 5.x once
 # released, which dllm cannot import — it relies on 4.x internals.

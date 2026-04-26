@@ -12,7 +12,8 @@ license = { text = "MIT" }
 authors = [{ name = "Bruno Kalfa", email = "bruno@alloreview.com" }]
 
 dependencies = [
-    "torch>=2.1.0",
+    # transformers 4.57+ refuses torch.load on torch < 2.6 (CVE-2025-32434).
+    "torch>=2.6",
     # The six pins below match dllm's hard pins (its pyproject.toml uses ==).
     # Leaving them as `>=` lets pip pick transformers 5.x once released,
     # which dllm cannot import.
