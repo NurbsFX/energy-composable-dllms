@@ -25,6 +25,14 @@ dependencies = [
     "safetensors>=0.4.0",
     # dllm is installed separately by scripts/setup_dllm.sh — see that
     # script for why a plain `pip install git+...` is not enough.
+    # Its runtime deps are pinned here because setup_dllm.sh uses
+    # --no-deps to avoid version conflicts with our own pins.
+    "torchmetrics>=1.0.0",
+    "tyro>=0.8.0",
+    "omegaconf>=2.3.0",
+    "rich>=13.0.0",
+    "deepspeed>=0.14.0",
+    "sentencepiece>=0.2.0",
     "numpy>=1.24.0",
     "scipy>=1.10.0",
     "pandas>=2.0.0",

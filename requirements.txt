@@ -10,7 +10,15 @@ huggingface_hub>=0.23.0
 safetensors>=0.4.0
 
 # dllm is installed by scripts/setup_dllm.sh (upstream packaging bug means
-# `pip install git+...` ships only the top-level package).
+# `pip install git+...` ships only the top-level package). Because the
+# script uses `--no-deps` to avoid version conflicts with our own pins,
+# we list dllm's runtime dependencies explicitly below.
+torchmetrics>=1.0.0
+tyro>=0.8.0
+omegaconf>=2.3.0
+rich>=13.0.0
+deepspeed>=0.14.0
+sentencepiece>=0.2.0
 
 numpy>=1.24.0
 scipy>=1.10.0
