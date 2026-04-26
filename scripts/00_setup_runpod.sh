@@ -8,6 +8,10 @@ apt-get install -y --no-install-recommends git tmux htop nvtop curl
 
 pip install --upgrade pip
 pip install -r requirements.txt
+# Install the local project (`src/` package) editably so scripts can do
+# `from src.energies import ...`. requirements.txt only covers third-party
+# dependencies.
+pip install -e .
 
 # Workaround: install dllm with all subpackages (upstream packaging bug).
 ./scripts/setup_dllm.sh
