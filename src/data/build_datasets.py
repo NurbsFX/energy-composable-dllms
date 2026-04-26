@@ -60,103 +60,143 @@ DEFAULT_VERTICAL_SPECS: list[VerticalSpec] = [
 ]
 
 
-def build_intersection_dataset(
-    spec_a: VerticalSpec,
-    spec_b: VerticalSpec,
+@dataclass(frozen=True)
+class IntersectionSpec:
+    """One Plan-B Test 1 intersection corpus: documents that pass both filters."""
+
+    name: str
+    spec_a: VerticalSpec
+    spec_b: VerticalSpec
+    target_size: int = 20_000
+
+
+def build_intersections(
+    specs: list[IntersectionSpec],
     *,
-    out_path: str | Path,
+    out_dir: str | Path = "artifacts/datasets",
     energies: dict[str, Energy] | None = None,
-    target_size: int = 20_000,
     streaming: bool = True,
     max_examples_seen: int = 5_000_000,
     text_max_chars: int = 4096,
     batch_size: int = 32,
-) -> Path:
-    """Stream OWT and write documents that pass *both* ``spec_a`` and ``spec_b``.
+) -> dict[str, Path]:
+    """Stream OWT once and dispatch to every intersection filter in parallel.
 
-    Used for ROADMAP §7.4 / Plan-B Test 1: train a single expert on the
+    Used for ROADMAP §7.4 / Plan-B Test 1: train an expert on the
     intersection corpus (e.g. long ∩ formal) and compare its sampling
-    distribution to PoE(long, formal). If PoE composition is exact, the
-    two distributions should be statistically indistinguishable.
+    distribution to PoE(long, formal). When several intersections are
+    requested at once we share the OWT scan and the per-batch classifier
+    forwards across them, which roughly halves the wall-clock cost
+    versus running the build twice in sequence.
+
+    Returns a mapping ``intersection_name → output JSONL path``. Also
+    writes one sidecar ``{name}.cross.json`` per intersection with the
+    per-proxy mean raw signal over accepted documents.
     """
     from datasets import load_dataset
 
-    out_path = Path(out_path)
-    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
     energies = energies or build_default_energies()
 
+    out_paths = {s.name: out_dir / f"{s.name}.jsonl" for s in specs}
+    targets = {s.name: s.target_size for s in specs}
+    counts: dict[str, int] = dict.fromkeys(targets, 0)
     proxy_names = list(energies.keys())
-    keys_needed = {spec_a.energy_key, spec_b.energy_key}
-    cross_sums = dict.fromkeys(proxy_names, 0.0)
-    count = 0
+    cross_sums: dict[str, dict[str, float]] = {
+        s.name: dict.fromkeys(proxy_names, 0.0) for s in specs
+    }
 
-    pbar = tqdm(total=target_size, desc=f"intersection {spec_a.name}∩{spec_b.name}")
-    batch: list[str] = []
-    seen = 0
+    # Truncate any pre-existing output before appending.
+    for p in out_paths.values():
+        p.write_text("")
 
-    def _flush() -> None:
-        nonlocal count
-        if not batch:
-            return
-        signals = {
-            k: energies[k].raw_signals_batch(batch, batch_size=batch_size) for k in keys_needed
-        }
-        accept = [
-            i
-            for i in range(len(batch))
-            if signals[spec_a.energy_key][i] > spec_a.keep_above
-            and signals[spec_b.energy_key][i] > spec_b.keep_above
-        ]
-        if accept:
-            # Score the rest of the proxies on the whole batch for the cross-row.
-            for k in proxy_names:
-                if k not in signals:
-                    signals[k] = energies[k].raw_signals_batch(batch, batch_size=batch_size)
-            with out_path.open("a", encoding="utf-8") as f:
-                for i in accept:
-                    if count >= target_size:
-                        break
-                    f.write(json.dumps({"text": batch[i]}) + "\n")
-                    count += 1
+    files = {name: open(path, "w", encoding="utf-8") for name, path in out_paths.items()}
+    try:
+        ds = load_dataset("Skylion007/openwebtext", split="train", streaming=streaming)
+        pbar = tqdm(
+            total=sum(targets.values()),
+            desc=f"intersections [{', '.join(s.name for s in specs)}]",
+        )
+
+        batch: list[str] = []
+        seen = 0
+
+        def _flush() -> None:
+            if not batch:
+                return
+            # Score the batch on every proxy needed by any open intersection.
+            keys_needed = set()
+            for s in specs:
+                if counts[s.name] >= targets[s.name]:
+                    continue
+                keys_needed.add(s.spec_a.energy_key)
+                keys_needed.add(s.spec_b.energy_key)
+            signals: dict[str, list[float]] = {
+                k: energies[k].raw_signals_batch(batch, batch_size=batch_size) for k in keys_needed
+            }
+            for i, text in enumerate(batch):
+                accepted_by = [
+                    s.name
+                    for s in specs
+                    if counts[s.name] < targets[s.name]
+                    and signals[s.spec_a.energy_key][i] > s.spec_a.keep_above
+                    and signals[s.spec_b.energy_key][i] > s.spec_b.keep_above
+                ]
+                if not accepted_by:
+                    continue
+                # Fill in cross-table proxies that we did not need for filtering.
+                for k in proxy_names:
+                    if k not in signals:
+                        signals[k] = energies[k].raw_signals_batch(batch, batch_size=batch_size)
+                for name in accepted_by:
+                    files[name].write(json.dumps({"text": text}) + "\n")
+                    counts[name] += 1
                     pbar.update(1)
                     for k in proxy_names:
-                        cross_sums[k] += signals[k][i]
-        batch.clear()
+                        cross_sums[name][k] += signals[k][i]
+            batch.clear()
 
-    out_path.write_text("")  # truncate
-    ds = load_dataset("Skylion007/openwebtext", split="train", streaming=streaming)
-    for ex in ds:
-        if seen >= max_examples_seen or count >= target_size:
-            break
-        text = ex.get("text")
-        if not isinstance(text, str) or not text.strip():
-            continue
-        batch.append(text[:text_max_chars])
-        seen += 1
-        if len(batch) >= batch_size:
-            _flush()
-    _flush()
-    pbar.close()
+        for ex in ds:
+            if seen >= max_examples_seen:
+                break
+            if all(counts[n] >= targets[n] for n in counts):
+                break
+            text = ex.get("text")
+            if not isinstance(text, str) or not text.strip():
+                continue
+            batch.append(text[:text_max_chars])
+            seen += 1
+            if len(batch) >= batch_size:
+                _flush()
+        _flush()
+        pbar.close()
+    finally:
+        for f in files.values():
+            f.close()
 
-    # Sidecar: per-proxy mean over accepted docs.
-    summary_path = out_path.with_suffix(".cross.json")
-    summary_path.write_text(
-        json.dumps(
-            {
-                "intersection": [spec_a.name, spec_b.name],
-                "thresholds": {
-                    spec_a.energy_key: spec_a.keep_above,
-                    spec_b.energy_key: spec_b.keep_above,
+    # Sidecar cross tables, one per intersection.
+    for s in specs:
+        c = counts[s.name]
+        sidecar = out_paths[s.name].with_suffix(".cross.json")
+        sidecar.write_text(
+            json.dumps(
+                {
+                    "intersection": [s.spec_a.name, s.spec_b.name],
+                    "thresholds": {
+                        s.spec_a.energy_key: s.spec_a.keep_above,
+                        s.spec_b.energy_key: s.spec_b.keep_above,
+                    },
+                    "count": c,
+                    "mean_raw_signal": {
+                        k: (v / c if c else 0.0) for k, v in cross_sums[s.name].items()
+                    },
                 },
-                "count": count,
-                "mean_raw_signal": {
-                    k: (v / count if count else 0.0) for k, v in cross_sums.items()
-                },
-            },
-            indent=2,
+                indent=2,
+            )
         )
-    )
-    return out_path
+
+    return {n: p for n, p in out_paths.items() if counts[n] > 0}
 
 
 def build_all(
