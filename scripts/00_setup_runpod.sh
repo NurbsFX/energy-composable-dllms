@@ -14,7 +14,10 @@ pip install -r requirements.txt
 
 : "${WANDB_API_KEY:?Set WANDB_API_KEY in pod env}"
 : "${HF_TOKEN:?Set HF_TOKEN in pod env}"
-echo "${WANDB_API_KEY}" | wandb login --relogin
+# Pass the key as an argument rather than piping through stdin: recent
+# wandb CLIs ignore stdin when invoked from a non-tty shell (e.g. inside
+# a setup script) and bail with "No API key configured".
+wandb login --relogin "${WANDB_API_KEY}"
 huggingface-cli login --token "${HF_TOKEN}" --add-to-git-credential
 
 # Pre-fetch model weights so the first scripted run isn't I/O-bound.
