@@ -54,7 +54,7 @@ class MergedSampler:
         return [self.tokenizer.decode(ids, skip_special_tokens=True) for ids in out]
 
 
-def merge_loras(base_model: nn.Module, cfg: NaiveLoRAMergeConfig) -> MergedSampler:
+def merge_loras(base_model: nn.Module, cfg: NaiveLoRAMergeConfig) -> str:
     """Linearly interpolate two adapters into a single ``cfg.merged_name`` adapter.
 
     Both adapters must already be loaded on ``base_model`` (a ``PeftModel``
@@ -72,6 +72,11 @@ def merge_loras(base_model: nn.Module, cfg: NaiveLoRAMergeConfig) -> MergedSampl
     terms ``w_a w_b A_a B_b + w_a w_b A_b B_a`` are exactly what makes
     naive LoRA parameter averaging a non-trivial baseline against PoE on
     logits).
+
+    Returns the name of the registered merged adapter; the caller is
+    responsible for building a :class:`MergedSampler` with its own
+    tokenizer and for ``base_model.delete_adapter(merged_name)`` once
+    the adapter is no longer needed.
     """
     import torch
     from peft import LoraConfig
@@ -106,7 +111,7 @@ def merge_loras(base_model: nn.Module, cfg: NaiveLoRAMergeConfig) -> MergedSampl
                 cfg.w_a * b[cfg.expert_a].weight + cfg.w_b * b[cfg.expert_b].weight
             )
 
-    return MergedSampler(base_model, tokenizer=None)
+    return cfg.merged_name
 
 
 def _adapter_state(model, adapter_name: str) -> dict[str, tuple]:

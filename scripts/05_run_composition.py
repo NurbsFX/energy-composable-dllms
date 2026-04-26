@@ -68,8 +68,17 @@ def main(
     out_dir.mkdir(parents=True, exist_ok=True)
     summary_json.parent.mkdir(parents=True, exist_ok=True)
 
+    from src.data.build_datasets import DEFAULT_VERTICAL_SPECS
+
+    expert_to_proxy: dict[str, str] = {s.name: s.energy_key for s in DEFAULT_VERTICAL_SPECS}
+
     pair_tuples = [_parse_pair(p) for p in pairs]
     needed_experts = sorted({n for ab in pair_tuples for n in ab})
+    for n in needed_experts:
+        if n not in expert_to_proxy:
+            raise typer.BadParameter(
+                f"unknown expert name {n!r}; expected one of {sorted(expert_to_proxy)}"
+            )
 
     typer.echo(f"Loading backbone {backbone} and adapters {needed_experts}...")
     model_args = dllm.utils.ModelArguments(model_name_or_path=backbone)
@@ -109,16 +118,14 @@ def main(
         typer.echo(f"\n=== pair {a} × {b} ===")
         pair_summary: dict[str, dict] = {}
 
+        proxy_a, proxy_b = expert_to_proxy[a], expert_to_proxy[b]
         for cfg_name, ab in CONFIGS.items():
             if cfg_name == "LoRA-merge":
-                merged = merge_loras(model, NaiveLoRAMergeConfig(a, b))
-                merged.tokenizer = tokenizer
+                merged_name = merge_loras(model, NaiveLoRAMergeConfig(a, b))
                 merged_sampler = MergedSampler(model, tokenizer, cfg=cfg)
                 torch.manual_seed(seed)
-                samples = merged_sampler.sample(prompts)
-                # Free the merged adapter for the next pair.
-                model.delete_adapter("merged")
-                del merged
+                samples = merged_sampler.sample(prompts, merged_name=merged_name)
+                model.delete_adapter(merged_name)
             else:
                 lambdas = {a: ab["a"], b: ab["b"]}
                 torch.manual_seed(seed)
@@ -132,7 +139,7 @@ def main(
 
             cs = summarize(
                 scores,
-                score_keys=(a if a in energies else "len", b if b in energies else "len"),
+                score_keys=(proxy_a, proxy_b),
                 thresholds=thresholds,
                 baseline_distinct_2=distinct_2_base,
                 baseline_ppl=ppl_base,
