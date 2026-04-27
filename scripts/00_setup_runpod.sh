@@ -25,6 +25,7 @@ wandb login --relogin "${WANDB_API_KEY}"
 huggingface-cli login --token "${HF_TOKEN}" --add-to-git-credential
 
 # Pre-fetch model weights so the first scripted run isn't I/O-bound.
+# IMPORTANT: include *.py for kuleshov-group/mdlm-owt (custom modeling code).
 python - <<'PY'
 from huggingface_hub import snapshot_download
 for repo_id in [
@@ -36,8 +37,13 @@ for repo_id in [
 ]:
     snapshot_download(
         repo_id=repo_id,
-        allow_patterns=["*.json", "*.bin", "*.safetensors", "*.txt", "tokenizer*"],
+        allow_patterns=["*.json", "*.bin", "*.safetensors", "*.txt", "*.py", "tokenizer*"],
     )
 PY
+
+# Drop MDLM-OWT's flash_attn dependency by rewriting its custom modeling
+# file to use PyTorch SDPA instead. flash-attn has no prebuilt wheel for
+# CUDA 13 / torch 2.11, and a from-source build takes ~30min on this pod.
+python scripts/patch_mdlm_no_flash_attn.py
 
 python -c "import torch; assert torch.cuda.is_available(); print('CUDA:', torch.cuda.get_device_name(0))"

@@ -61,6 +61,74 @@ core_init.write_text(
     '__all__ = ["samplers", "schedulers", "trainers"]\n'
 )
 print("Trimmed dllm/core/__init__.py to {samplers, schedulers, trainers}.")
+
+# 4. Patch dllm/pipelines/__init__.py: drop rl (needs trl) and editflow (heavy).
+#    dllm.utils.get_tokenizer transitively imports dllm.pipelines.a2d, which
+#    triggers this __init__ — and the upstream version eagerly imports rl.
+pipelines_init = dllm_dir / "dllm" / "pipelines" / "__init__.py"
+pipelines_init.write_text(
+    'from . import a2d\n\n'
+    '__all__ = ["a2d"]\n'
+)
+print("Trimmed dllm/pipelines/__init__.py to {a2d}.")
+
+# 5. Patch dllm/utils/models.py: add trust_remote_code=True everywhere
+#    (MDLM-OWT ships custom modeling code) and add a GPT-2 tokenizer fallback
+#    (MDLM-OWT does not ship a tokenizer in its repo).
+models_py = dllm_dir / "dllm" / "utils" / "models.py"
+src = models_py.read_text()
+
+# 5a. trust_remote_code in get_model params dict.
+src = src.replace(
+    'params = {\n        "dtype": dtype,',
+    'params = {\n        "trust_remote_code": True,\n        "dtype": dtype,',
+)
+# 5b. trust_remote_code in get_tokenizer's primary AutoTokenizer call, plus
+#     a GPT-2 fallback for repos without a tokenizer (MDLM-OWT).
+old_tok = (
+    '    # ---------------- Tokenizer loading ----------------\n'
+    '    tokenizer = transformers.AutoTokenizer.from_pretrained(\n'
+    '        model_name_or_path,\n'
+    '        padding_side="right",\n'
+    '    )'
+)
+new_tok = (
+    '    # ---------------- Tokenizer loading ----------------\n'
+    '    try:\n'
+    '        tokenizer = transformers.AutoTokenizer.from_pretrained(\n'
+    '            model_name_or_path,\n'
+    '            padding_side="right",\n'
+    '            trust_remote_code=True,\n'
+    '        )\n'
+    '    except (ValueError, OSError):\n'
+    '        # MDLM-OWT (kuleshov-group/mdlm-owt) ships no tokenizer; falls back to GPT-2.\n'
+    '        tokenizer = transformers.AutoTokenizer.from_pretrained("gpt2", padding_side="right")\n'
+    '        # MDLM expects vocab_size = GPT-2 (50257) + 1 mask token = 50258 — id 50257.\n'
+    '        tokenizer.add_special_tokens({"mask_token": "<|mdlm_mask|>"})'
+)
+assert old_tok in src, "tokenizer patch anchor not found"
+src = src.replace(old_tok, new_tok)
+# 5c. trust_remote_code on AutoConfig + handle custom configs not in AutoModel
+#     mapping (MDLMConfig is registered by trust_remote_code but absent from
+#     the standard AutoModel._model_mapping).
+old_cfg = (
+    '    # If model is not provided, return as-is\n'
+    '    model_cfg = transformers.AutoConfig.from_pretrained(model_name_or_path)\n'
+    '    model_cls = transformers.AutoModel._model_mapping[type(model_cfg)]'
+)
+new_cfg = (
+    '    # If model is not provided, return as-is\n'
+    '    model_cfg = transformers.AutoConfig.from_pretrained(model_name_or_path, trust_remote_code=True)\n'
+    '    if type(model_cfg) not in transformers.AutoModel._model_mapping:\n'
+    '        # Custom configs (e.g. MDLMConfig) are not in the standard mapping;\n'
+    '        # skip the model-specific tokenizer customization.\n'
+    '        return tokenizer\n'
+    '    model_cls = transformers.AutoModel._model_mapping[type(model_cfg)]'
+)
+assert old_cfg in src, "config patch anchor not found"
+src = src.replace(old_cfg, new_cfg)
+models_py.write_text(src)
+print("Patched dllm/utils/models.py for MDLM-OWT compatibility.")
 EOF
 
 "$PIP" install --force-reinstall --no-deps -e "$DLLM_DIR"

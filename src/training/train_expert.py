@@ -35,12 +35,13 @@ class ExpertTrainingConfig:
     warmup_steps: int = 150
     lr_schedule: str = "cosine"
     precision: str = "bf16"
-    grad_checkpointing: bool = True
+    grad_checkpointing: bool = False  # MDLM-OWT does not implement it
 
     lora_rank: int = 16
     lora_alpha: int = 32
     lora_dropout: float = 0.05
-    lora_target_modules: tuple[str, ...] = ("q_proj", "k_proj", "v_proj", "o_proj")
+    # MDLM-OWT uses combined `attn_qkv` + `attn_out` (not Llama-style q/k/v/o_proj).
+    lora_target_modules: tuple[str, ...] = ("attn_qkv", "attn_out")
     # Required for PoE coherence: if the embeddings drift across experts the
     # per-position sum of logits used by the composed sampler is no longer
     # mathematically meaningful.
@@ -139,6 +140,9 @@ def train(cfg: ExpertTrainingConfig) -> Path:
         report_to="wandb",
         run_name=cfg.wandb_run_name or f"expert-{cfg.expert_name}",
         logging_steps=10,
+        # MDLM.forward does not declare `labels` (it derives them from input_ids
+        # via the masking step), so HF Trainer's default would drop the column.
+        remove_unused_columns=False,
     )
 
     # ---- 4. Trainer ----------------------------------------------------------
