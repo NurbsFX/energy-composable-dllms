@@ -143,11 +143,32 @@ def patch(path: Path) -> bool:
         "  def forward(self, indices, sigma=None,\n"
         "              output_hidden_states=False):\n"
         "    if sigma is None or not self.config.time_conditioning:\n"
-        "      sigma = torch.zeros(indices.shape[0], device=indices.device, dtype=torch.float32)"
+        "      sigma = torch.zeros(indices.shape[0], device=indices.device, dtype=self.vocab_embed.embedding.dtype)"
     )
     if old_sigma not in src:
         raise RuntimeError(f"sigma anchor not found in {path}")
     src = src.replace(old_sigma, new_sigma)
+
+    # 7. TimestepEmbedder.forward casts t_freq to MLP weight dtype, otherwise
+    #    inference (no autocast) crashes with float32 input vs bfloat16 weights.
+    old_te = (
+        "  def forward(self, t):\n"
+        "    t_freq = self.timestep_embedding(t,\n"
+        "                                     self.frequency_embedding_size)\n"
+        "    t_emb = self.mlp(t_freq)\n"
+        "    return t_emb"
+    )
+    new_te = (
+        "  def forward(self, t):\n"
+        "    t_freq = self.timestep_embedding(t,\n"
+        "                                     self.frequency_embedding_size)\n"
+        "    t_freq = t_freq.to(dtype=self.mlp[0].weight.dtype)\n"
+        "    t_emb = self.mlp(t_freq)\n"
+        "    return t_emb"
+    )
+    if old_te not in src:
+        raise RuntimeError(f"timestep embedder anchor not found in {path}")
+    src = src.replace(old_te, new_te)
 
     path.write_text(src)
     return True

@@ -74,6 +74,10 @@ def main(
         if spec.name not in paths:
             typer.echo(f"  ⚠ no documents accepted for {spec.name}; skipping training.", err=True)
             continue
+        adapter = checkpoints_dir / spec.name / "adapter_model.safetensors"
+        if adapter.exists():
+            typer.echo(f"skipped {spec.name} (adapter already at {adapter.parent})")
+            continue
         typer.echo(f"\nFine-tuning expert on {paths[spec.name]}")
         cfg = ExpertTrainingConfig(
             expert_name=spec.name,
