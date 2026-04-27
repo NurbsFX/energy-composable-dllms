@@ -27,10 +27,16 @@ app = typer.Typer(add_completion=False)
 
 @app.command()
 def main(
-    pair: str = typer.Option("long:formal"),
-    n_samples: int = 500,
-    max_new_tokens: int = 128,
+    pair: str = typer.Option("formal:concrete"),
+    n_samples: int = 200,
+    # See scripts/05_run_composition.py for why these defaults shrunk:
+    # MDLM-OWT degenerates past ~30-50 tokens, and `>=`-style thresholds
+    # need more than {0,1}-saturated proxies — we generate short, prompt-
+    # seeded text and score that instead.
+    max_new_tokens: int = 48,
     num_steps: int = 256,
+    prompts_file: Path | None = None,
+    prompt_token_len: int = 12,
     out_json: Path = Path("artifacts/test1_intersection_check.json"),
     out_png: Path = Path("artifacts/plots/test1_intersection_check.png"),
     checkpoints_dir: Path = Path("artifacts/checkpoints"),
@@ -69,7 +75,18 @@ def main(
     cfg = PoEConfig(num_steps=num_steps, max_new_tokens=max_new_tokens, seed=seed)
     poe = PoESampler(model, tokenizer, cfg=cfg)
 
-    prompts = [""] * n_samples
+    if prompts_file is not None:
+        with prompts_file.open() as f:
+            pool = [json.loads(line)["text"] for line in f if line.strip()]
+        if not pool:
+            raise typer.BadParameter(f"prompts file {prompts_file} is empty")
+        prompts = []
+        for i in range(n_samples):
+            ids = tokenizer.encode(pool[i % len(pool)], add_special_tokens=False)[:prompt_token_len]
+            prompts.append(tokenizer.decode(ids, skip_special_tokens=True))
+        typer.echo(f"Loaded {len(pool)} prompts from {prompts_file} (cycled to {n_samples}).")
+    else:
+        prompts = [""] * n_samples
 
     typer.echo("Sampling from intersection-trained expert...")
     torch.manual_seed(seed)

@@ -13,10 +13,13 @@ app = typer.Typer(add_completion=False)
 
 @app.command()
 def main(
-    triplet: list[str] = typer.Option(["long", "formal", "positive"]),
-    n_samples: int = 500,
-    max_new_tokens: int = 128,
+    triplet: list[str] = typer.Option(["formal", "positive", "concrete"]),
+    n_samples: int = 200,
+    # MDLM-OWT degenerates past ~30-50 tokens; see scripts/05_run_composition.py.
+    max_new_tokens: int = 48,
     num_steps: int = 256,
+    prompts_file: Path | None = None,
+    prompt_token_len: int = 12,
     out_json: Path = Path("artifacts/n3_results.json"),
     out_png: Path = Path("artifacts/plots/n3_satisfaction.png"),
     checkpoints_dir: Path = Path("artifacts/checkpoints"),
@@ -54,7 +57,18 @@ def main(
     cfg = PoEConfig(num_steps=num_steps, max_new_tokens=max_new_tokens, seed=seed)
     poe = PoESampler(model, tokenizer, cfg=cfg)
 
-    prompts = [""] * n_samples
+    if prompts_file is not None:
+        with prompts_file.open() as f:
+            pool = [json.loads(line)["text"] for line in f if line.strip()]
+        if not pool:
+            raise typer.BadParameter(f"prompts file {prompts_file} is empty")
+        prompts = []
+        for i in range(n_samples):
+            ids = tokenizer.encode(pool[i % len(pool)], add_special_tokens=False)[:prompt_token_len]
+            prompts.append(tokenizer.decode(ids, skip_special_tokens=True))
+        typer.echo(f"Loaded {len(pool)} prompts from {prompts_file} (cycled to {n_samples}).")
+    else:
+        prompts = [""] * n_samples
 
     # Baseline → thresholds
     typer.echo("Sampling baseline...")
@@ -75,7 +89,7 @@ def main(
 
         energy_key = next((s.energy_key for s in DEFAULT_VERTICAL_SPECS if s.name == name), name)
         marginals[name] = float(
-            sum(r.proxy_scores[energy_key] > thresholds[energy_key] for r in scored)
+            sum(r.proxy_scores[energy_key] >= thresholds[energy_key] for r in scored)
             / max(1, len(scored))
         )
         typer.echo(f"  marginal {name} = {marginals[name]:.3f}")
@@ -91,7 +105,7 @@ def main(
         ek = next((s.energy_key for s in DEFAULT_VERTICAL_SPECS if s.name == n), n)
         triplet_energy_keys.append(ek)
     triple_sat = float(
-        sum(all(r.proxy_scores[k] > thresholds[k] for k in triplet_energy_keys) for r in scored)
+        sum(all(r.proxy_scores[k] >= thresholds[k] for k in triplet_energy_keys) for r in scored)
         / max(1, len(scored))
     )
     indep_ref = float(marginals[triplet[0]] * marginals[triplet[1]] * marginals[triplet[2]])

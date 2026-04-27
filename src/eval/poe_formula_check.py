@@ -126,6 +126,69 @@ class _ContextSetAdapter:
         return False
 
 
+def estimate_log_ratio_elbo_poe(
+    base_with_adapters,
+    tokenizer,
+    x: list[int] | str,
+    y: list[int] | str,
+    *,
+    lambdas: dict[str, float],
+    num_t_samples: int = 32,
+    seed: int = 0,
+    scheduler=None,
+) -> float:
+    """Same paired-MC ELBO log-ratio as :func:`estimate_log_ratio_elbo`,
+    but evaluated under the PoE-composed distribution rather than under
+    one specific adapter. Uses :class:`PoECompositionModel` so every
+    forward call returns ``logits_base + Σ λ_i (logits_i − logits_base)``.
+    """
+    import torch
+    from dllm.core.schedulers import LinearAlphaScheduler
+
+    from src.composition.poe_sampler import PoECompositionModel
+
+    scheduler = scheduler or LinearAlphaScheduler()
+    rng = torch.Generator(device="cpu").manual_seed(seed)
+
+    x_ids = tokenizer.encode(x, add_special_tokens=False) if isinstance(x, str) else x
+    y_ids = tokenizer.encode(y, add_special_tokens=False) if isinstance(y, str) else y
+    if len(x_ids) != len(y_ids):
+        raise ValueError(
+            f"paired ELBO assumes equal-length sequences (got {len(x_ids)} vs {len(y_ids)})"
+        )
+
+    device = next(base_with_adapters.parameters()).device
+    x_t = torch.tensor([x_ids], dtype=torch.long, device=device)
+    y_t = torch.tensor([y_ids], dtype=torch.long, device=device)
+    seq_len = x_t.shape[1]
+    mask_id = tokenizer.mask_token_id
+
+    poe_model = PoECompositionModel(base_with_adapters, lambdas)
+    diffs: list[float] = []
+    base_with_adapters.eval()
+    with torch.no_grad():
+        for _ in range(num_t_samples):
+            t = torch.rand(1, generator=rng).item() * (1 - 1e-3) + 1e-3
+            p_mask = 1.0 - float(scheduler(torch.tensor([t])).item())
+            mask = torch.rand(seq_len, generator=rng) < p_mask
+            x_in = x_t.clone()
+            y_in = y_t.clone()
+            x_in[0, mask] = mask_id
+            y_in[0, mask] = mask_id
+
+            logits_x = poe_model(input_ids=x_in).logits
+            logits_y = poe_model(input_ids=y_in).logits
+
+            ce_x = torch.nn.functional.cross_entropy(
+                logits_x[0, mask], x_t[0, mask], reduction="sum"
+            )
+            ce_y = torch.nn.functional.cross_entropy(
+                logits_y[0, mask], y_t[0, mask], reduction="sum"
+            )
+            diffs.append(float(ce_x - ce_y))
+    return float(np.mean(diffs))
+
+
 def check_poe_formula(
     base_with_adapters,
     tokenizer,
@@ -140,8 +203,8 @@ def check_poe_formula(
 
     ``pairs`` is a list of ``(x, y)`` token sequences (or strings) of equal
     length. For each pair we evaluate the four ELBO-based log-ratios and
-    contrast the prediction (sum minus base) against the observed PoE
-    ratio.
+    contrast the prediction (``log p_a + log p_b − log p_base``) against the
+    observed PoE log-ratio (computed from ``PoECompositionModel`` logits).
     """
     from scipy.stats import linregress
 
@@ -158,21 +221,16 @@ def check_poe_formula(
         log_ratio_base = estimate_log_ratio_elbo(
             base_with_adapters, tokenizer, x, y, adapter=None, **common
         )
-        # PoE evaluated implicitly by the composition wrapper of
-        # :class:`PoESampler` would also obey this estimate; we represent
-        # it here by the model with both adapters added back through the
-        # composition formula at the level of *logits*. The check is that
-        # the observed and predicted log-ratios coincide.
+        log_ratio_poe = estimate_log_ratio_elbo_poe(
+            base_with_adapters,
+            tokenizer,
+            x,
+            y,
+            lambdas={expert_a: 1.0, expert_b: 1.0},
+            **common,
+        )
         predicted.append(log_ratio_a + log_ratio_b - log_ratio_base)
-        # The observed log_ratio under the PoE-composed distribution is
-        # not directly available without re-implementing the composition
-        # at the ELBO level. We approximate it as the same sum-minus-base
-        # construction; in the ideal case the observation collapses to
-        # the prediction. Real downstream usage of this function (Phase
-        # 4.5 Test 2) should plug in the PoE-sampler ELBO estimator
-        # available in :mod:`src.composition.poe_sampler` once it has a
-        # closed-form ELBO helper.
-        observed.append(log_ratio_a + log_ratio_b - log_ratio_base)
+        observed.append(log_ratio_poe)
 
     pred = np.asarray(predicted)
     obs = np.asarray(observed)
