@@ -30,12 +30,10 @@ class MergedSampler:
         self.cfg = cfg or PoEConfig()
 
     def sample(self, prompts: list[str], merged_name: str = "merged") -> list[str]:
-        import torch
         from dllm.core.samplers import MDLMSampler, MDLMSamplerConfig
         from dllm.core.schedulers import LinearAlphaScheduler
 
-        if self.cfg.seed is not None:
-            torch.manual_seed(self.cfg.seed)
+        from .coherence import sample_with_rejection
 
         self.base.set_adapter(merged_name)
         sampler = MDLMSampler(
@@ -51,11 +49,28 @@ class MergedSampler:
         )
         prompt_tokens = [self.tokenizer.encode(p, add_special_tokens=False) for p in prompts]
         bs = max(1, self.cfg.sample_batch_size)
-        out_ids: list = []
-        for start in range(0, len(prompt_tokens), bs):
-            chunk = prompt_tokens[start : start + bs]
-            out_ids.extend(sampler.sample(chunk, config=config))
-        return [self.tokenizer.decode(ids, skip_special_tokens=True) for ids in out_ids]
+
+        def _one_attempt(chunk: list[list[int]]) -> list[list[int]]:
+            out: list = []
+            for start in range(0, len(chunk), bs):
+                out.extend(sampler.sample(chunk[start : start + bs], config=config))
+            return out
+
+        if not self.cfg.coherence_filter:
+            return [
+                self.tokenizer.decode(ids, skip_special_tokens=True)
+                for ids in _one_attempt(prompt_tokens)
+            ]
+
+        texts, _ = sample_with_rejection(
+            _one_attempt,
+            lambda ids: self.tokenizer.decode(ids, skip_special_tokens=True),
+            prompt_tokens,
+            seed=self.cfg.seed,
+            max_attempts=self.cfg.max_resample_attempts,
+            label=f"merged:{merged_name}",
+        )
+        return texts
 
 
 def merge_loras(base_model: nn.Module, cfg: NaiveLoRAMergeConfig) -> str:

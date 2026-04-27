@@ -38,6 +38,13 @@ class PoEConfig:
     # peak allocation (logits.exp() + log(noise) intermediates) blew past A100
     # 80GB. 32 keeps us well under.
     sample_batch_size: int = 32
+    # Rejection sampling on coherence: redraws degenerate samples (phrase
+    # repetition / token flood / digit flood) until we have enough coherent
+    # ones. ``max_resample_attempts`` caps the worst-case wall-clock at
+    # ~max_attempts × the original budget; in practice the per-attempt yield
+    # ~halves so total ≈ 2× nominal.
+    coherence_filter: bool = True
+    max_resample_attempts: int = 5
 
 
 class PoECompositionModel:
@@ -111,11 +118,9 @@ class PoESampler:
         lambdas: dict[str, float],
     ) -> list[str]:
         """Generate one sample per prompt with PoE-composed logits."""
-        import torch
         from dllm.core.samplers import MDLMSamplerConfig
 
-        if self.cfg.seed is not None:
-            torch.manual_seed(self.cfg.seed)
+        from .coherence import sample_with_rejection
 
         sampler = self._build_dllm_sampler(lambdas)
         config = MDLMSamplerConfig(
@@ -125,14 +130,30 @@ class PoESampler:
             block_size=self.cfg.block_size or self.cfg.max_new_tokens,
         )
         prompt_tokens = [self.tokenizer.encode(p, add_special_tokens=False) for p in prompts]
-
         bs = max(1, self.cfg.sample_batch_size)
-        out_ids: list = []
-        for start in range(0, len(prompt_tokens), bs):
-            chunk = prompt_tokens[start : start + bs]
-            chunk_out = sampler.sample(chunk, config=config)
-            out_ids.extend(chunk_out)
-        return [self.tokenizer.decode(ids, skip_special_tokens=True) for ids in out_ids]
+
+        def _one_attempt(prompt_chunk: list[list[int]]) -> list[list[int]]:
+            out: list = []
+            for start in range(0, len(prompt_chunk), bs):
+                out.extend(sampler.sample(prompt_chunk[start : start + bs], config=config))
+            return out
+
+        if not self.cfg.coherence_filter:
+            return [
+                self.tokenizer.decode(ids, skip_special_tokens=True)
+                for ids in _one_attempt(prompt_tokens)
+            ]
+
+        label = "+".join(f"{k}={v:.2f}" for k, v in sorted(lambdas.items())) or "base"
+        texts, _ = sample_with_rejection(
+            _one_attempt,
+            lambda ids: self.tokenizer.decode(ids, skip_special_tokens=True),
+            prompt_tokens,
+            seed=self.cfg.seed,
+            max_attempts=self.cfg.max_resample_attempts,
+            label=label,
+        )
+        return texts
 
     def assert_lambda_zero_is_base(self, prompts: list[str], *, n_trials: int = 3) -> None:
         """λ=0 must reproduce the bare backbone token-for-token at fixed seed.
