@@ -50,8 +50,12 @@ class MergedSampler:
             block_size=self.cfg.block_size or self.cfg.max_new_tokens,
         )
         prompt_tokens = [self.tokenizer.encode(p, add_special_tokens=False) for p in prompts]
-        out = sampler.sample(prompt_tokens, config=config)
-        return [self.tokenizer.decode(ids, skip_special_tokens=True) for ids in out]
+        bs = max(1, self.cfg.sample_batch_size)
+        out_ids: list = []
+        for start in range(0, len(prompt_tokens), bs):
+            chunk = prompt_tokens[start : start + bs]
+            out_ids.extend(sampler.sample(chunk, config=config))
+        return [self.tokenizer.decode(ids, skip_special_tokens=True) for ids in out_ids]
 
 
 def merge_loras(base_model: nn.Module, cfg: NaiveLoRAMergeConfig) -> str:

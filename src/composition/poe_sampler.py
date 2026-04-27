@@ -32,6 +32,12 @@ class PoEConfig:
     temperature: float = 1.0
     block_size: int | None = None  # default: full max_new_tokens (one block)
     seed: int | None = None
+    # Sampling batch size: dllm's MDLMSampler converts the full logits tensor
+    # to float64 in one shot for Gumbel-softmax. With max_new_tokens=128,
+    # vocab=50258, that's 1MB/sample/step — but at the original 500/batch the
+    # peak allocation (logits.exp() + log(noise) intermediates) blew past A100
+    # 80GB. 32 keeps us well under.
+    sample_batch_size: int = 32
 
 
 class PoECompositionModel:
@@ -119,8 +125,14 @@ class PoESampler:
             block_size=self.cfg.block_size or self.cfg.max_new_tokens,
         )
         prompt_tokens = [self.tokenizer.encode(p, add_special_tokens=False) for p in prompts]
-        out = sampler.sample(prompt_tokens, config=config)
-        return [self.tokenizer.decode(ids, skip_special_tokens=True) for ids in out]
+
+        bs = max(1, self.cfg.sample_batch_size)
+        out_ids: list = []
+        for start in range(0, len(prompt_tokens), bs):
+            chunk = prompt_tokens[start : start + bs]
+            chunk_out = sampler.sample(chunk, config=config)
+            out_ids.extend(chunk_out)
+        return [self.tokenizer.decode(ids, skip_special_tokens=True) for ids in out_ids]
 
     def assert_lambda_zero_is_base(self, prompts: list[str], *, n_trials: int = 3) -> None:
         """λ=0 must reproduce the bare backbone token-for-token at fixed seed.
