@@ -53,8 +53,12 @@ def summarize(
         return ConfigSummary(config_name, 0, 0.0, 0.0, 0.0, float("nan"), float("nan"))
 
     a_key, b_key = score_keys
-    sat_a = np.array([s.proxy_scores[a_key] > thresholds[a_key] for s in samples])
-    sat_b = np.array([s.proxy_scores[b_key] > thresholds[b_key] for s in samples])
+    # Use `>=` rather than strict `>` so we degrade gracefully when the proxy
+    # distribution is saturated (e.g. token length capped at max_new_tokens):
+    # with `>` the top-quartile threshold collapsing to the saturation value
+    # forces the marginal to 0 even when the expert pushes the distribution.
+    sat_a = np.array([s.proxy_scores[a_key] >= thresholds[a_key] for s in samples])
+    sat_b = np.array([s.proxy_scores[b_key] >= thresholds[b_key] for s in samples])
 
     distinct_2 = float(np.mean([s.distinct_2 for s in samples]))
     ppl = float(np.mean([s.ppl_gpt2 for s in samples]))

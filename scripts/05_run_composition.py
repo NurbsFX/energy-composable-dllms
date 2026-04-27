@@ -43,12 +43,22 @@ def _parse_pair(s: str) -> tuple[str, str]:
 @app.command()
 def main(
     pairs: list[str] = typer.Option(
-        ["long:formal", "long:positive", "formal:positive", "positive:positive2"],
+        ["formal:positive", "positive:positive2"],
         help="Expert pairs as 'name_a:name_b'.",
     ),
-    n_samples: int = 500,
-    max_new_tokens: int = 128,
+    n_samples: int = 200,
+    # MDLM-OWT (110M) degenerates into repetition past ~30-50 tokens. We cap
+    # generation at 48 to keep the early, coherent portion of each sample —
+    # which is enough for the proxies (formality, sentiment, etc.) to register
+    # a relative shift between configs.
+    max_new_tokens: int = 48,
     num_steps: int = 256,
+    # Path to a JSONL of seed prompts (`{"text": ...}`). Empty prompts produce
+    # only `1, 1, 1, ...`-style noise on this backbone, so we *must* seed
+    # with diverse OWT-style snippets. ``None`` falls back to empty prompts
+    # (legacy behaviour, kept for unit tests).
+    prompts_file: Path | None = None,
+    prompt_token_len: int = 12,
     out_dir: Path = Path("artifacts/samples"),
     summary_json: Path = Path("artifacts/joint_satisfaction.json"),
     checkpoints_dir: Path = Path("artifacts/checkpoints"),
@@ -101,7 +111,20 @@ def main(
     poe.assert_lambda_zero_is_base(prompts=[""])
 
     summary: dict[str, dict[str, dict]] = {}
-    prompts = [""] * n_samples
+    if prompts_file is not None:
+        with prompts_file.open() as f:
+            pool = [json.loads(line)["text"] for line in f if line.strip()]
+        if not pool:
+            raise typer.BadParameter(f"prompts file {prompts_file} is empty")
+        # Truncate each prompt to `prompt_token_len` GPT-2 tokens, cycle if pool
+        # is smaller than n_samples.
+        prompts = []
+        for i in range(n_samples):
+            ids = tokenizer.encode(pool[i % len(pool)], add_special_tokens=False)[:prompt_token_len]
+            prompts.append(tokenizer.decode(ids, skip_special_tokens=True))
+        typer.echo(f"Loaded {len(pool)} prompts from {prompts_file} (cycled to {n_samples}).")
+    else:
+        prompts = [""] * n_samples
 
     # --- baseline once (independent of pair) ------------------------------
     typer.echo("Sampling baseline (no adapter active)...")
