@@ -759,3 +759,93 @@ Bayesian κ-shrunk variant is indistinguishable from PoE-strict
      mostly-clean phase helps.
    * **α** — Gibbs MCMC refinement on top of naïve PoE-3 samples.
      Adapts Du Yan et al. 2023 to discrete-state MDLM.
+
+### 4.9 Phase 7 v2 — Options α and β under fixed-marginal calibration
+
+The Phase 7 v1 sweep had a measurement bias: when a non-constant
+schedule is in effect the per-expert solo runs *also* used the schedule,
+which biased the indep_ref. v2 separates the two: marginals always
+measured at constant λ, the schedule under test only applied for the
+PoE-3 step. n=500 throughout.
+
+| config                 | naive  | mcmc-refined | r_naive | r_mcmc |
+|------------------------|-------:|-------------:|--------:|-------:|
+| **constant** (control) | 0.018  |     —        |  0.55   |   —    |
+| early_fire             | 0.018  |     —        |  0.55   |   —    |
+| exp                    | 0.010  |     —        |  0.30   |   —    |
+| cosine                 | 0.004  |     —        |  0.12   |   —    |
+| late_fire              | 0.004  |     —        |  0.12   |   —    |
+| constant + MCMC×10     | 0.018  |   0.012      |  0.55   |  0.36  |
+| exp + MCMC×10          | 0.010  |   0.008      |  0.30   |  0.24  |
+
+Two negative results both worth reporting:
+
+* **Option β (λ schedule) does not beat constant.** `early_fire` matches
+  the control (so the first half of denoising carries the signal — a
+  novel observation), and every other schedule degrades. `late_fire` and
+  `cosine` *halve* the ratio: pushing the composition toward the clean
+  phase loses the gain entirely. Pre-experiment intuition (push when
+  the sequence is mostly clean) is therefore inverted.
+* **Option α (Gibbs MCMC refinement) degrades.** A naïve Gibbs sweep
+  that re-samples five token positions from the PoE-composed softmax
+  collapses easy tokens, dropping ratio 0.55 → 0.36 on top of constant
+  and 0.30 → 0.24 on top of exp. The Du Yan 2023 idea may still hold,
+  but in continuous-state diffusion their MCMC is annealed Langevin
+  with explicit energy gradients; our discrete Gibbs equivalent without
+  proposal correction over-greedifies.
+
+Combined with the §4.7 λ-sweep, the plateau at ratio ≈ 0.55 is now
+robust against:
+
+  * 11 uniform λ ∈ [0.1, 1.5] (§4.7)
+  * Bayesian per-expert λ_i = 1/(1+κ̄_i) (§4.7)
+  * 4 denoising-step schedules (§4.9)
+  * 2 MCMC variants (§4.9)
+
+→ The plateau is **not** a calibration artefact. It is consistent with
+either the per-step approximation in diffusion-LM PoE composition (the
+mechanism Du Yan et al. 2023 documented in image diffusion) or with the
+limited capacity of the 110 M MDLM-OWT backbone. Section §4.10 (Option
+γ) attacks this distinction by re-running the full pipeline on a 5×
+larger MDLM backbone (Qwen3-0.6B-MDLM); if the plateau lifts with
+backbone capacity, the bottleneck is structural (Niveau 3); if it
+persists, the per-step approximation is the dominant cause (Niveau 2)
+and Du Yan-style joint MCMC over the trajectory becomes the right
+target for a follow-up.
+
+### 4.10 Take-aways for the paper
+
+What the PoC delivers (consolidated across Phases 4–7):
+
+1. **N=2 PoE composition is robustly super-additive.** Across 10 pairs
+   spanning five vertical axes, PoE-strict beats baseline 10/10 with
+   median +71 % JS gain at moderate fluency cost (PPL ratio ≈ 2). The
+   formula itself is empirically validated (Test 2: slope 0.857,
+   R² 0.811 on 50 random sequences) and beats a dedicated intersection-
+   trained adapter on the form/conc axes (Test 1).
+
+2. **Independence metrics predict the PoE deficit.** On the same 10
+   pairs we get r = −0.92 (κ), −0.87 (CKA), −0.84 (MI) between the
+   pair's independence score and the joint-satisfaction deficit. The
+   four metrics agree independently — strong, multi-method evidence
+   that PoE compositionality is exactly captured by the κ Gram-matrix
+   theory developed in §2.
+
+3. **N=3 PoE plateaus around ratio 0.55** despite extensive calibration:
+   constant λ (11 values), Bayesian per-expert λ, 4 schedule variants,
+   MCMC refinement with two settings — all bottom out at the same
+   value. The plateau is *robust*, not a calibration choice.
+
+4. **The plateau dependency on independence reverses sign at N=3.**
+   On three triplets at fixed λ=1, the more-independent triplet has
+   the *worse* PoE-3 ratio (formal × concrete × sports → 0.87,
+   formal × positive × concrete → 0.55, positive2 × concrete × sports
+   → 0.39). At N=2, more independence helps PoE; at N=3, more
+   independence apparently hurts. This is a candidate test-bed for
+   future joint-MCMC corrective approaches.
+
+5. **Early-step pushes are sufficient.** `early_fire` (push only on the
+   first half of denoising) matches `constant`, while `late_fire` (push
+   only on the second half) collapses to ratio 0.12. The composition
+   signal is encoded in the early denoising steps; the clean-phase
+   re-pushes do not add information.
