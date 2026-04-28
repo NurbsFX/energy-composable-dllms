@@ -43,21 +43,40 @@ def main(
     indep = json.loads(independence_json.read_text())
     js = json.loads(js_json.read_text())
 
-    # Build the per-pair point set, joining on the "a|b" key convention.
+    # gram + independence keys are *proxy* pairs (e.g. "form|sent"); js keys
+    # are *expert* pairs (e.g. "formal|positive"). Build the mapping from
+    # the canonical vertical specs and then iterate by joint-satisfaction
+    # entry so we only score the experiments that actually ran.
+    from src.data.build_datasets import DEFAULT_VERTICAL_SPECS
+
+    expert_to_proxy = {s.name: s.energy_key for s in DEFAULT_VERTICAL_SPECS}
+    energy_order = list(gram["energy_names"])
+
+    def proxy_key(a: str, b: str) -> str:
+        pa, pb = expert_to_proxy[a], expert_to_proxy[b]
+        # gram stores pairs by their order in `energy_names` (i < j), so
+        # reorder to match.
+        if energy_order.index(pa) > energy_order.index(pb):
+            pa, pb = pb, pa
+        return f"{pa}|{pb}"
+
     points: list[MetricDeficitPoint] = []
-    for key, kappa in gram["pair_kappas"].items():
-        if key not in js:
+    for js_key, js_entry in js.items():
+        a, b = js_key.split("|")
+        if a not in expert_to_proxy or b not in expert_to_proxy:
             continue
-        a, b = key.split("|")
+        gk = proxy_key(a, b)
+        if gk not in gram["pair_kappas"]:
+            continue
         points.append(
             MetricDeficitPoint(
                 pair=(a, b),
-                kappa=float(kappa),
-                spearman_abs=abs(float(indep["pair_spearman"][key])),
-                cka=float(indep["pair_cka"][key]),
-                mi=float(indep["pair_mi"][key]),
-                js_poe=float(js[key]["poe_strict"]),
-                js_indep=float(js[key]["indep"]),
+                kappa=float(gram["pair_kappas"][gk]),
+                spearman_abs=abs(float(indep["pair_spearman"][gk])),
+                cka=float(indep["pair_cka"][gk]),
+                mi=float(indep["pair_mi"][gk]),
+                js_poe=float(js_entry["__indep_reference__"]["poe_strict"]),
+                js_indep=float(js_entry["__indep_reference__"]["indep"]),
             )
         )
 

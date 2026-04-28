@@ -20,6 +20,15 @@ def main(
     num_steps: int = 256,
     prompts_file: Path | None = None,
     prompt_token_len: int = 12,
+    # PoE-N composition λ applied uniformly to each expert. Default 1.0 ≡ PoE-strict.
+    # At N≥3 the cumulative logit perturbation grows linearly with the number
+    # of experts; setting λ=1/N keeps the cumulative scale at parity with N=2.
+    lambda_each: float = 1.0,
+    lambda_spec: str = "",
+    # λ schedule across denoising steps (Option β). One of:
+    #   constant | linear | late_fire | cosine | exp | early_fire
+    # ``""`` ≡ constant (vanilla PoE).
+    lambda_schedule: str = "",
     out_json: Path = Path("artifacts/n3_results.json"),
     out_png: Path = Path("artifacts/plots/n3_satisfaction.png"),
     checkpoints_dir: Path = Path("artifacts/checkpoints"),
@@ -54,7 +63,12 @@ def main(
 
     energies = build_default_energies()
     scorer = SampleScorer(energies=energies)
-    cfg = PoEConfig(num_steps=num_steps, max_new_tokens=max_new_tokens, seed=seed)
+    cfg = PoEConfig(
+        num_steps=num_steps,
+        max_new_tokens=max_new_tokens,
+        seed=seed,
+        lambda_schedule=lambda_schedule or None,
+    )
     poe = PoESampler(model, tokenizer, cfg=cfg)
 
     if prompts_file is not None:
@@ -95,9 +109,20 @@ def main(
         typer.echo(f"  marginal {name} = {marginals[name]:.3f}")
 
     # Triple PoE
-    typer.echo("Sampling PoE-3...")
+    if lambda_spec:
+        per_expert = {}
+        for kv in lambda_spec.split(","):
+            k, v = kv.split(":")
+            per_expert[k.strip()] = float(v)
+        for n in triplet:
+            if n not in per_expert:
+                raise typer.BadParameter(f"--lambda-spec missing entry for {n!r}")
+        lambdas_used = {n: per_expert[n] for n in triplet}
+    else:
+        lambdas_used = {n: lambda_each for n in triplet}
+    typer.echo(f"Sampling PoE-3 (λ={lambdas_used})...")
     torch.manual_seed(seed)
-    scored = [scorer.score(s) for s in poe.sample(prompts, lambdas={n: 1.0 for n in triplet})]
+    scored = [scorer.score(s) for s in poe.sample(prompts, lambdas=lambdas_used)]
     from src.data.build_datasets import DEFAULT_VERTICAL_SPECS
 
     triplet_energy_keys = []
@@ -117,6 +142,10 @@ def main(
         json.dumps(
             {
                 "triplet": triplet,
+                "lambda_each": lambda_each,
+                "lambda_spec": lambda_spec,
+                "lambda_schedule": lambda_schedule,
+                "lambdas_used": lambdas_used,
                 "thresholds": thresholds,
                 "marginals": marginals,
                 "triple_satisfaction_poe3": triple_sat,
