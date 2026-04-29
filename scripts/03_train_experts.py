@@ -31,10 +31,20 @@ def main(
     output_dir: Path = Path("artifacts/checkpoints"),
     num_steps: int = 2500,
     force: bool = typer.Option(False, help="Retrain even if a checkpoint already exists."),
+    backbone: str = typer.Option(
+        "kuleshov-group/mdlm-owt", help="MDLM backbone to fine-tune on top of."
+    ),
+    lora_target: str = typer.Option(
+        "attn_qkv,attn_out",
+        help="Comma-separated LoRA target_modules. MDLM-OWT uses 'attn_qkv,attn_out'; "
+        "Qwen3/Llama backbones use 'q_proj,k_proj,v_proj,o_proj'.",
+    ),
 ) -> None:
     if only is not None and only not in EXPERTS:
         raise typer.BadParameter(f"unknown expert: {only}")
     todo = {only: EXPERTS[only]} if only else EXPERTS
+
+    target_modules = tuple(s.strip() for s in lora_target.split(",") if s.strip())
 
     output_dir.mkdir(parents=True, exist_ok=True)
     for name, train_jsonl in todo.items():
@@ -48,6 +58,8 @@ def main(
             output_dir=output_dir,
             num_steps=num_steps,
             wandb_run_name=f"expert-{name}",
+            backbone=backbone,
+            lora_target_modules=target_modules,
         )
         ckpt = train(cfg)
         typer.echo(f"trained {name} → {ckpt}")

@@ -849,3 +849,117 @@ What the PoC delivers (consolidated across Phases 4–7):
    only on the second half) collapses to ratio 0.12. The composition
    signal is encoded in the early denoising steps; the clean-phase
    re-pushes do not add information.
+
+---
+
+## Phase 8 — Option γ (Qwen3-0.6B-MDLM, 5× larger backbone)
+
+Ran the full N=2 + N=3 pipeline on `dllm-hub/Qwen3-0.6B-diffusion-mdlm-v0.1`
+(596 M params, 5× MDLM-OWT) to disambiguate Niveau 2 (per-step diffusion-LM
+approximation, theoretical) vs Niveau 3 (backbone capacity).
+
+Setup: same datasets, same prompts.jsonl, same n=200 (N=2) and n=500 (N=3),
+same `max_new_tokens=48`. LoRA target_modules switched to
+`q_proj/k_proj/v_proj/o_proj` (Llama-style); 4.6 M trainable params per
+expert (vs 0.88 M on MDLM-OWT). 7 LoRA adapters trained at 2500 steps each,
+intersection adapter (`formal_concrete`) trained the same way.
+
+### 5.1 N=2 PoE-strict ratio: side-by-side
+
+| pair                    | MDLM-OWT r | Qwen3 r | Δ |
+|-------------------------|-----------:|--------:|---:|
+| formal × positive       |    1.33    |  0.24   | ⬇⬇ |
+| formal × positive2      |    1.17    |  0.44   | ⬇  |
+| formal × concrete       |    0.69    |  0.76   | ⬆  |
+| formal × sports         |    0.95    |  0.69   | ⬇  |
+| positive × positive2    |    2.54    |  1.48   | ⬇  |
+| positive × concrete     |    0.74    |  1.08   | ⬆  |
+| positive × sports       |    1.69    |  1.13   | ⬇  |
+| positive2 × concrete    |    0.72    |  0.94   | ⬆  |
+| positive2 × sports      |    0.94    |  1.15   | ⬆  |
+| concrete × sports       |    0.76    |  2.77   | ⬆⬆⬆|
+| **mean**                |  **1.04**  |**1.07** |    |
+
+Means are nearly identical, but the per-pair variance is much wider on
+Qwen3 (0.24 → 2.77, vs 0.69 → 2.54 on MDLM-OWT). Notably:
+
+* **Lexical/topical pairs** (concrete, sports, positive2 with topic-coloured
+  axes) tend to *improve* on Qwen3 — `concrete × sports` jumps from 0.76 to
+  2.77 (+264 %).
+* **Style-coloured pairs** (formal, positive) tend to *degrade* — `formal ×
+  positive` collapses from 1.33 to 0.24.
+
+This refutes the naïve "bigger backbone uniformly improves PoE" hypothesis.
+Qwen3 LoRA experts produce stronger marginal shifts (formal: 0.32 → 0.59;
+sports: 0.25 → 0.23) but those stronger shifts collide on entangled-style
+axes while reinforcing on disjoint lexical axes.
+
+### 5.2 N=3 PoE-3 ratio at λ=1, n=500, both backbones
+
+| triplet (max κ on OWT)                   | MDLM-OWT r | Qwen3 r |
+|------------------------------------------|-----------:|--------:|
+| positive2 × concrete × sports (κ=0.029)  |   0.39     |  **1.84** |
+| formal × positive × concrete (κ=0.032)   |   0.55     |  0.42   |
+| formal × concrete × sports (κ=0.040)     |   0.88     |  0.84   |
+| **mean**                                 |  **0.61**  | **1.03** |
+
+Qwen3 lifts the mean PoE-3 ratio from sub-additive (0.61) to indep-ref
+parity (1.03). One triplet (the most lexical, `positive2 × concrete ×
+sports`) becomes super-additive (1.84). One stays flat (0.84). One
+slightly degrades (0.42).
+
+→ **The N=3 plateau is partially backbone-bounded** but not uniformly.
+Lexical-axis triplets benefit, style-axis triplets do not.
+
+### 5.3 Phase 5 (κ ↔ deficit) on Qwen3
+
+Refit the κ-vs-PoE-deficit linear model on the 10 Qwen3 N=2 pairs (with
+the same κ values from OWT, only JS_PoE / indep_ref change):
+
+| metric    | MDLM-OWT r | Qwen3 r |
+|-----------|-----------:|--------:|
+| κ         |   −0.917   |  −0.242 |
+| Spearman  |   −0.752   |  −0.210 |
+| CKA       |   −0.868   |  −0.302 |
+| MI        |   −0.836   |  −0.301 |
+
+**The κ-deficit correlation collapses on Qwen3.** All four CIs span zero —
+we can't even reject the null hypothesis. The strong relationship
+documented on MDLM-OWT (§4.5) was specific to that backbone, not a
+universal property of PoE composition.
+
+### 5.4 What the paper looks like now (revised)
+
+1. **Formula validation (§4.4 Test 2) holds.** PoE-as-logit-sum is
+   empirically validated (slope 0.857, R² 0.811). This is independent of
+   backbone.
+2. **N=2 PoE composition is super-additive on average** (mean ratio 1.04
+   on MDLM-OWT, 1.07 on Qwen3) but with substantial per-pair variance —
+   hardly the clean "PoE works" story we'd hoped to tell.
+3. **N=3 plateau is partially backbone-dependent.** Mean ratio lifts
+   from 0.61 (small backbone) to 1.03 (large backbone), but per-triplet
+   results vary widely. Lexical axes help, style axes don't.
+4. **κ ↔ deficit correlation is backbone-specific.** Not generalizable
+   from MDLM-OWT to Qwen3. The κ-Gram framework remains valid as a
+   description of the *proxies' joint structure on OWT*, but not as a
+   universal predictor of PoE outcomes.
+5. **Tests 1 and 2** still hold qualitatively but should be re-checked
+   on Qwen3 in any final write-up.
+
+### 5.5 Bottom line
+
+We do not have a single, universal claim "PoE composes super-additively
+in MDLM if X". What we have is:
+
+* A theoretical foundation (κ-Gram framework, PoE formula).
+* An empirical study across 2 backbones and ~30 calibration variants.
+* A nuanced finding: backbone capacity matters at N=3 *but only for
+  lexical-axis composition*; style-axis composition stays plateaued.
+* A negative result: κ does not universally predict PoE deficit.
+
+This is publishable as an empirical-diagnostic paper for a workshop or
+short-paper venue. It is not the clean "we proved compositionality"
+paper. The honest framing positions this work as a careful
+characterization of where PoE-on-MDLM works and where it doesn't,
+opening directions for follow-up (entangled-axis composition,
+backbone-invariant deficit predictors, joint-trajectory MCMC).

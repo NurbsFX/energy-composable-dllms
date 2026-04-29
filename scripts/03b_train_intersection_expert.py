@@ -33,6 +33,11 @@ def main(
     out_dir: Path = Path("artifacts/datasets"),
     checkpoints_dir: Path = Path("artifacts/checkpoints"),
     num_steps: int = 2500,
+    backbone: str = typer.Option("kuleshov-group/mdlm-owt"),
+    lora_target: str = typer.Option(
+        "attn_qkv,attn_out",
+        help="LoRA targets — Qwen3 needs 'q_proj,k_proj,v_proj,o_proj'.",
+    ),
 ) -> None:
     from src.data.build_datasets import (
         DEFAULT_VERTICAL_SPECS,
@@ -79,12 +84,15 @@ def main(
             typer.echo(f"skipped {spec.name} (adapter already at {adapter.parent})")
             continue
         typer.echo(f"\nFine-tuning expert on {paths[spec.name]}")
+        target_modules = tuple(s.strip() for s in lora_target.split(",") if s.strip())
         cfg = ExpertTrainingConfig(
             expert_name=spec.name,
             train_jsonl=paths[spec.name],
             output_dir=checkpoints_dir,
             num_steps=num_steps,
             wandb_run_name=f"expert-{spec.name}",
+            backbone=backbone,
+            lora_target_modules=target_modules,
         )
         ckpt = train(cfg)
         typer.echo(f"trained {spec.name} → {ckpt}")
