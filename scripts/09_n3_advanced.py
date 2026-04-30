@@ -81,42 +81,53 @@ def main(
 
     energies = build_default_energies()
     scorer = SampleScorer(energies=energies)
-    cfg = PoEConfig(
+    # Two PoE handles: a constant-λ one for the baseline + per-expert
+    # marginals (so the indep_ref stays comparable across schedule
+    # variants) and a schedule-aware one used only for the actual PoE-3
+    # step under test.
+    cfg_const = PoEConfig(
+        num_steps=num_steps,
+        max_new_tokens=max_new_tokens,
+        seed=seed,
+        lambda_schedule=None,
+    )
+    cfg_poe3 = PoEConfig(
         num_steps=num_steps,
         max_new_tokens=max_new_tokens,
         seed=seed,
         lambda_schedule=schedule if schedule != "constant" else None,
     )
-    poe = PoESampler(model, tokenizer, cfg=cfg)
+    poe_const = PoESampler(model, tokenizer, cfg=cfg_const)
+    poe_sched = PoESampler(model, tokenizer, cfg=cfg_poe3)
     prompts = _load_prompts(prompts_file, n_samples, prompt_token_len, tokenizer)
 
-    # Baseline → thresholds
-    typer.echo("Sampling baseline...")
+    # Baseline → thresholds (always at constant schedule for fair comparison)
+    typer.echo("Sampling baseline (constant schedule)...")
     torch.manual_seed(seed)
-    base_texts = poe.sample(prompts, lambdas={})
+    base_texts = poe_const.sample(prompts, lambdas={})
     base_scored = [scorer.score(s) for s in base_texts]
     thresholds = compute_thresholds({k: [r.proxy_scores[k] for r in base_scored] for k in energies})
 
-    # Per-expert solo marginals
+    # Per-expert solo marginals (always at constant schedule)
     from src.data.build_datasets import DEFAULT_VERTICAL_SPECS
 
     energy_for = {s.name: s.energy_key for s in DEFAULT_VERTICAL_SPECS}
     marginals: dict[str, float] = {}
     for name in triplet:
-        typer.echo(f"Sampling solo {name}...")
+        typer.echo(f"Sampling solo {name} (constant schedule)...")
         torch.manual_seed(seed)
-        scored = [scorer.score(s) for s in poe.sample(prompts, lambdas={name: 1.0})]
+        scored = [scorer.score(s) for s in poe_const.sample(prompts, lambdas={name: 1.0})]
         ek = energy_for.get(name, name)
         marginals[name] = float(
             sum(r.proxy_scores[ek] >= thresholds[ek] for r in scored) / max(1, len(scored))
         )
         typer.echo(f"  marginal {name} = {marginals[name]:.3f}")
 
-    # PoE-3 (with optional schedule)
+    # PoE-3 (with the schedule under test)
     typer.echo(f"Sampling PoE-3 (λ_each={lambda_each}, schedule={schedule})...")
     torch.manual_seed(seed)
     lambdas = {n: lambda_each for n in triplet}
-    poe3_texts = poe.sample(prompts, lambdas=lambdas)
+    poe3_texts = poe_sched.sample(prompts, lambdas=lambdas)
 
     triplet_keys = [energy_for.get(n, n) for n in triplet]
 

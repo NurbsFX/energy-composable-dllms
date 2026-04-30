@@ -1,0 +1,366 @@
+{
+  "per_backbone": {
+    "mdlm_owt": {
+      "B_leakage": {
+        "values": {
+          "formal|positive": 0.30000000000000004,
+          "formal|positive2": 0.2925,
+          "formal|concrete": 0.27249999999999996,
+          "formal|sports": 0.2575,
+          "positive|positive2": 0.3225,
+          "positive|concrete": 0.255,
+          "positive|sports": 0.2975,
+          "positive2|concrete": 0.2675,
+          "positive2|sports": 0.28,
+          "concrete|sports": 0.265
+        },
+        "corr": {
+          "n": 10,
+          "r": -0.8866050935304872,
+          "p": 0.0006295016312594248
+        }
+      },
+      "F_js": {
+        "values": {
+          "formal|positive": 0.20663389385562864,
+          "formal|positive2": 0.1918625669350656,
+          "formal|concrete": 0.1623713208875267,
+          "formal|sports": 0.18270820312538738,
+          "positive|positive2": 0.17783187558800098,
+          "positive|concrete": 0.15717554503044198,
+          "positive|sports": 0.17983092360887887,
+          "positive2|concrete": 0.16597676665425687,
+          "positive2|sports": 0.19845213629894823,
+          "concrete|sports": 0.1629970918827389
+        },
+        "corr": {
+          "n": 10,
+          "r": -0.2944753725909891,
+          "p": 0.40884804027968075
+        }
+      },
+      "A_prime": {
+        "values": {
+          "formal|positive": 0.9335839431732893,
+          "formal|positive2": 0.634823514148593,
+          "formal|concrete": 0.5958411325700581,
+          "formal|sports": 0.8992444928735495,
+          "positive|positive2": 0.6879011504352093,
+          "positive|concrete": 0.6808873321861029,
+          "positive|sports": 0.9486082177609205,
+          "positive2|concrete": 0.8016748242080212,
+          "positive2|sports": 0.650381525978446,
+          "concrete|sports": 0.6619879025965929
+        },
+        "corr": {
+          "n": 10,
+          "r": -0.17887488554884956,
+          "p": 0.6209924325169932
+        }
+      },
+      "E_spatial": {
+        "values": {
+          "formal|positive": 0.9966870658099651,
+          "formal|positive2": 0.9137328080832958,
+          "formal|concrete": 0.8901227302849293,
+          "formal|sports": 0.9947596807032824,
+          "positive|positive2": 0.9279631618410349,
+          "positive|concrete": 0.9135593455284834,
+          "positive|sports": 0.99825868755579,
+          "positive2|concrete": 0.9474808182567358,
+          "positive2|sports": 0.9256432205438614,
+          "concrete|sports": 0.9148372318595648
+        },
+        "corr": {
+          "n": 10,
+          "r": -0.23099841083306172,
+          "p": 0.5208021024792387
+        }
+      }
+    },
+    "qwen3": {
+      "B_leakage": {
+        "values": {
+          "formal|positive": 0.45999999999999996,
+          "formal|positive2": 0.355,
+          "formal|concrete": 0.3275,
+          "formal|sports": 0.35250000000000004,
+          "positive|positive2": 0.3175,
+          "positive|concrete": 0.2825,
+          "positive|sports": 0.2875,
+          "positive2|concrete": 0.2025,
+          "positive2|sports": 0.21500000000000002,
+          "concrete|sports": 0.22749999999999998
+        },
+        "corr": {
+          "n": 10,
+          "r": 0.7859816144447538,
+          "p": 0.007025210027235625
+        }
+      },
+      "F_js": {
+        "values": {
+          "formal|positive": 0.20173564969958122,
+          "formal|positive2": 0.1851249329548068,
+          "formal|concrete": 0.20162020735931166,
+          "formal|sports": 0.1838773751874086,
+          "positive|positive2": 0.19607394086664454,
+          "positive|concrete": 0.18471018965205957,
+          "positive|sports": 0.20621328588001445,
+          "positive2|concrete": 0.19796780850552287,
+          "positive2|sports": 0.1930072864707741,
+          "concrete|sports": 0.19153397177858988
+        },
+        "corr": {
+          "n": 10,
+          "r": 0.10210477530258623,
+          "p": 0.7789598280561745
+        }
+      },
+      "A_prime": {
+        "values": {
+          "formal|positive": 0.9572076965123415,
+          "formal|positive2": 0.9506513364613056,
+          "formal|concrete": 0.9394935164600611,
+          "formal|sports": 0.9480085056275129,
+          "positive|positive2": 0.9621261712163687,
+          "positive|concrete": 0.9500463921576738,
+          "positive|sports": 0.9584832824766636,
+          "positive2|concrete": 0.9507848601788282,
+          "positive2|sports": 0.957255732268095,
+          "concrete|sports": 0.948864109814167
+        },
+        "corr": {
+          "n": 10,
+          "r": -0.04911653394359214,
+          "p": 0.8928164047676495
+        }
+      },
+      "E_spatial": {
+        "values": {
+          "formal|positive": 0.9994475301355124,
+          "formal|positive2": 0.99932811409235,
+          "formal|concrete": 0.9991451110690832,
+          "formal|sports": 0.9992925524711609,
+          "positive|positive2": 0.9993307515978813,
+          "positive|concrete": 0.9992389548569918,
+          "positive|sports": 0.9993718452751637,
+          "positive2|concrete": 0.9992803819477558,
+          "positive2|sports": 0.9994165729731321,
+          "concrete|sports": 0.9991892110556364
+        },
+        "corr": {
+          "n": 10,
+          "r": 0.4532065608275848,
+          "p": 0.18837086463948235
+        }
+      }
+    }
+  },
+  "cross_backbone": {
+    "A_prime": {
+      "predictor_values": {
+        "mdlm_owt/formal|positive": 0.9335839431732893,
+        "mdlm_owt/formal|positive2": 0.634823514148593,
+        "mdlm_owt/formal|concrete": 0.5958411325700581,
+        "mdlm_owt/formal|sports": 0.8992444928735495,
+        "mdlm_owt/positive|positive2": 0.6879011504352093,
+        "mdlm_owt/positive|concrete": 0.6808873321861029,
+        "mdlm_owt/positive|sports": 0.9486082177609205,
+        "mdlm_owt/positive2|concrete": 0.8016748242080212,
+        "mdlm_owt/positive2|sports": 0.650381525978446,
+        "mdlm_owt/concrete|sports": 0.6619879025965929,
+        "qwen3/formal|positive": 0.9572076965123415,
+        "qwen3/formal|positive2": 0.9506513364613056,
+        "qwen3/formal|concrete": 0.9394935164600611,
+        "qwen3/formal|sports": 0.9480085056275129,
+        "qwen3/positive|positive2": 0.9621261712163687,
+        "qwen3/positive|concrete": 0.9500463921576738,
+        "qwen3/positive|sports": 0.9584832824766636,
+        "qwen3/positive2|concrete": 0.9507848601788282,
+        "qwen3/positive2|sports": 0.957255732268095,
+        "qwen3/concrete|sports": 0.948864109814167
+      },
+      "deficits": {
+        "mdlm_owt/formal|positive": -0.03,
+        "mdlm_owt/formal|positive2": -0.018500000000000003,
+        "mdlm_owt/formal|concrete": 0.0295,
+        "mdlm_owt/formal|sports": 0.004500000000000004,
+        "mdlm_owt/positive|positive2": -0.16350000000000003,
+        "mdlm_owt/positive|concrete": 0.024499999999999994,
+        "mdlm_owt/positive|sports": -0.0655,
+        "mdlm_owt/positive2|concrete": 0.03182499999999999,
+        "mdlm_owt/positive2|sports": 0.006824999999999998,
+        "mdlm_owt/concrete|sports": 0.02422500000000001,
+        "qwen3/formal|positive": 0.17600000000000002,
+        "qwen3/formal|positive2": 0.0895,
+        "qwen3/formal|concrete": 0.03625000000000002,
+        "qwen3/formal|sports": 0.035500000000000004,
+        "qwen3/positive|positive2": -0.0582,
+        "qwen3/positive|concrete": -0.009499999999999995,
+        "qwen3/positive|sports": -0.011800000000000019,
+        "qwen3/positive2|concrete": 0.004750000000000004,
+        "qwen3/positive2|sports": -0.00910000000000001,
+        "qwen3/concrete|sports": -0.10225000000000001
+      },
+      "corr": {
+        "n": 20,
+        "r": 0.09773606134808502,
+        "p": 0.6818580982148714
+      }
+    },
+    "B_leakage": {
+      "predictor_values": {
+        "mdlm_owt/formal|positive": 0.30000000000000004,
+        "mdlm_owt/formal|positive2": 0.2925,
+        "mdlm_owt/formal|concrete": 0.27249999999999996,
+        "mdlm_owt/formal|sports": 0.2575,
+        "mdlm_owt/positive|positive2": 0.3225,
+        "mdlm_owt/positive|concrete": 0.255,
+        "mdlm_owt/positive|sports": 0.2975,
+        "mdlm_owt/positive2|concrete": 0.2675,
+        "mdlm_owt/positive2|sports": 0.28,
+        "mdlm_owt/concrete|sports": 0.265,
+        "qwen3/formal|positive": 0.45999999999999996,
+        "qwen3/formal|positive2": 0.355,
+        "qwen3/formal|concrete": 0.3275,
+        "qwen3/formal|sports": 0.35250000000000004,
+        "qwen3/positive|positive2": 0.3175,
+        "qwen3/positive|concrete": 0.2825,
+        "qwen3/positive|sports": 0.2875,
+        "qwen3/positive2|concrete": 0.2025,
+        "qwen3/positive2|sports": 0.21500000000000002,
+        "qwen3/concrete|sports": 0.22749999999999998
+      },
+      "deficits": {
+        "mdlm_owt/formal|positive": -0.03,
+        "mdlm_owt/formal|positive2": -0.018500000000000003,
+        "mdlm_owt/formal|concrete": 0.0295,
+        "mdlm_owt/formal|sports": 0.004500000000000004,
+        "mdlm_owt/positive|positive2": -0.16350000000000003,
+        "mdlm_owt/positive|concrete": 0.024499999999999994,
+        "mdlm_owt/positive|sports": -0.0655,
+        "mdlm_owt/positive2|concrete": 0.03182499999999999,
+        "mdlm_owt/positive2|sports": 0.006824999999999998,
+        "mdlm_owt/concrete|sports": 0.02422500000000001,
+        "qwen3/formal|positive": 0.17600000000000002,
+        "qwen3/formal|positive2": 0.0895,
+        "qwen3/formal|concrete": 0.03625000000000002,
+        "qwen3/formal|sports": 0.035500000000000004,
+        "qwen3/positive|positive2": -0.0582,
+        "qwen3/positive|concrete": -0.009499999999999995,
+        "qwen3/positive|sports": -0.011800000000000019,
+        "qwen3/positive2|concrete": 0.004750000000000004,
+        "qwen3/positive2|sports": -0.00910000000000001,
+        "qwen3/concrete|sports": -0.10225000000000001
+      },
+      "corr": {
+        "n": 20,
+        "r": 0.47347159479400586,
+        "p": 0.03497305944301507
+      }
+    },
+    "E_spatial": {
+      "predictor_values": {
+        "mdlm_owt/formal|positive": 0.9966870658099651,
+        "mdlm_owt/formal|positive2": 0.9137328080832958,
+        "mdlm_owt/formal|concrete": 0.8901227302849293,
+        "mdlm_owt/formal|sports": 0.9947596807032824,
+        "mdlm_owt/positive|positive2": 0.9279631618410349,
+        "mdlm_owt/positive|concrete": 0.9135593455284834,
+        "mdlm_owt/positive|sports": 0.99825868755579,
+        "mdlm_owt/positive2|concrete": 0.9474808182567358,
+        "mdlm_owt/positive2|sports": 0.9256432205438614,
+        "mdlm_owt/concrete|sports": 0.9148372318595648,
+        "qwen3/formal|positive": 0.9994475301355124,
+        "qwen3/formal|positive2": 0.99932811409235,
+        "qwen3/formal|concrete": 0.9991451110690832,
+        "qwen3/formal|sports": 0.9992925524711609,
+        "qwen3/positive|positive2": 0.9993307515978813,
+        "qwen3/positive|concrete": 0.9992389548569918,
+        "qwen3/positive|sports": 0.9993718452751637,
+        "qwen3/positive2|concrete": 0.9992803819477558,
+        "qwen3/positive2|sports": 0.9994165729731321,
+        "qwen3/concrete|sports": 0.9991892110556364
+      },
+      "deficits": {
+        "mdlm_owt/formal|positive": -0.03,
+        "mdlm_owt/formal|positive2": -0.018500000000000003,
+        "mdlm_owt/formal|concrete": 0.0295,
+        "mdlm_owt/formal|sports": 0.004500000000000004,
+        "mdlm_owt/positive|positive2": -0.16350000000000003,
+        "mdlm_owt/positive|concrete": 0.024499999999999994,
+        "mdlm_owt/positive|sports": -0.0655,
+        "mdlm_owt/positive2|concrete": 0.03182499999999999,
+        "mdlm_owt/positive2|sports": 0.006824999999999998,
+        "mdlm_owt/concrete|sports": 0.02422500000000001,
+        "qwen3/formal|positive": 0.17600000000000002,
+        "qwen3/formal|positive2": 0.0895,
+        "qwen3/formal|concrete": 0.03625000000000002,
+        "qwen3/formal|sports": 0.035500000000000004,
+        "qwen3/positive|positive2": -0.0582,
+        "qwen3/positive|concrete": -0.009499999999999995,
+        "qwen3/positive|sports": -0.011800000000000019,
+        "qwen3/positive2|concrete": 0.004750000000000004,
+        "qwen3/positive2|sports": -0.00910000000000001,
+        "qwen3/concrete|sports": -0.10225000000000001
+      },
+      "corr": {
+        "n": 20,
+        "r": 0.07073251740545719,
+        "p": 0.7669791727690222
+      }
+    },
+    "F_js": {
+      "predictor_values": {
+        "mdlm_owt/formal|positive": 0.20663389385562864,
+        "mdlm_owt/formal|positive2": 0.1918625669350656,
+        "mdlm_owt/formal|concrete": 0.1623713208875267,
+        "mdlm_owt/formal|sports": 0.18270820312538738,
+        "mdlm_owt/positive|positive2": 0.17783187558800098,
+        "mdlm_owt/positive|concrete": 0.15717554503044198,
+        "mdlm_owt/positive|sports": 0.17983092360887887,
+        "mdlm_owt/positive2|concrete": 0.16597676665425687,
+        "mdlm_owt/positive2|sports": 0.19845213629894823,
+        "mdlm_owt/concrete|sports": 0.1629970918827389,
+        "qwen3/formal|positive": 0.20173564969958122,
+        "qwen3/formal|positive2": 0.1851249329548068,
+        "qwen3/formal|concrete": 0.20162020735931166,
+        "qwen3/formal|sports": 0.1838773751874086,
+        "qwen3/positive|positive2": 0.19607394086664454,
+        "qwen3/positive|concrete": 0.18471018965205957,
+        "qwen3/positive|sports": 0.20621328588001445,
+        "qwen3/positive2|concrete": 0.19796780850552287,
+        "qwen3/positive2|sports": 0.1930072864707741,
+        "qwen3/concrete|sports": 0.19153397177858988
+      },
+      "deficits": {
+        "mdlm_owt/formal|positive": -0.03,
+        "mdlm_owt/formal|positive2": -0.018500000000000003,
+        "mdlm_owt/formal|concrete": 0.0295,
+        "mdlm_owt/formal|sports": 0.004500000000000004,
+        "mdlm_owt/positive|positive2": -0.16350000000000003,
+        "mdlm_owt/positive|concrete": 0.024499999999999994,
+        "mdlm_owt/positive|sports": -0.0655,
+        "mdlm_owt/positive2|concrete": 0.03182499999999999,
+        "mdlm_owt/positive2|sports": 0.006824999999999998,
+        "mdlm_owt/concrete|sports": 0.02422500000000001,
+        "qwen3/formal|positive": 0.17600000000000002,
+        "qwen3/formal|positive2": 0.0895,
+        "qwen3/formal|concrete": 0.03625000000000002,
+        "qwen3/formal|sports": 0.035500000000000004,
+        "qwen3/positive|positive2": -0.0582,
+        "qwen3/positive|concrete": -0.009499999999999995,
+        "qwen3/positive|sports": -0.011800000000000019,
+        "qwen3/positive2|concrete": 0.004750000000000004,
+        "qwen3/positive2|sports": -0.00910000000000001,
+        "qwen3/concrete|sports": -0.10225000000000001
+      },
+      "corr": {
+        "n": 20,
+        "r": 0.014338786766409164,
+        "p": 0.9521566180519274
+      }
+    }
+  }
+}
