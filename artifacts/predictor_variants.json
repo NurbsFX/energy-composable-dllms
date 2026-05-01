@@ -1,0 +1,244 @@
+{
+  "B_variants": {
+    "mdlm_owt": {
+      "B_raw": {
+        "values": {
+          "formal|positive": 0.30000000000000004,
+          "formal|positive2": 0.2925,
+          "formal|concrete": 0.27249999999999996,
+          "formal|sports": 0.2575,
+          "positive|positive2": 0.3225,
+          "positive|concrete": 0.255,
+          "positive|sports": 0.2975,
+          "positive2|concrete": 0.2675,
+          "positive2|sports": 0.28,
+          "concrete|sports": 0.265
+        },
+        "corr": {
+          "n": 10,
+          "r": -0.8866050935304872,
+          "p": 0.0006295016312594248
+        }
+      },
+      "B_centered": {
+        "values": {
+          "formal|positive": 0.050000000000000044,
+          "formal|positive2": 0.04249999999999998,
+          "formal|concrete": 0.022499999999999964,
+          "formal|sports": 0.007500000000000007,
+          "positive|positive2": 0.07250000000000001,
+          "positive|concrete": 0.0050000000000000044,
+          "positive|sports": 0.04749999999999999,
+          "positive2|concrete": 0.017500000000000016,
+          "positive2|sports": 0.030000000000000027,
+          "concrete|sports": 0.015000000000000013
+        },
+        "corr": {
+          "n": 10,
+          "r": -0.8866050935304872,
+          "p": 0.0006295016312594248
+        }
+      },
+      "B_abs_dev": {
+        "values": {
+          "formal|positive": 0.050000000000000044,
+          "formal|positive2": 0.04249999999999998,
+          "formal|concrete": 0.022499999999999964,
+          "formal|sports": 0.007500000000000007,
+          "positive|positive2": 0.07250000000000001,
+          "positive|concrete": 0.0050000000000000044,
+          "positive|sports": 0.04749999999999999,
+          "positive2|concrete": 0.017500000000000016,
+          "positive2|sports": 0.030000000000000027,
+          "concrete|sports": 0.015000000000000013
+        },
+        "corr": {
+          "n": 10,
+          "r": -0.8866050935304872,
+          "p": 0.0006295016312594248
+        }
+      }
+    },
+    "qwen3": {
+      "B_raw": {
+        "values": {
+          "formal|positive": 0.45999999999999996,
+          "formal|positive2": 0.355,
+          "formal|concrete": 0.3275,
+          "formal|sports": 0.35250000000000004,
+          "positive|positive2": 0.3175,
+          "positive|concrete": 0.2825,
+          "positive|sports": 0.2875,
+          "positive2|concrete": 0.2025,
+          "positive2|sports": 0.21500000000000002,
+          "concrete|sports": 0.22749999999999998
+        },
+        "corr": {
+          "n": 10,
+          "r": 0.7859816144447538,
+          "p": 0.007025210027235625
+        }
+      },
+      "B_centered": {
+        "values": {
+          "formal|positive": 0.20999999999999996,
+          "formal|positive2": 0.10499999999999998,
+          "formal|concrete": 0.07750000000000001,
+          "formal|sports": 0.10250000000000004,
+          "positive|positive2": 0.0675,
+          "positive|concrete": 0.03249999999999997,
+          "positive|sports": 0.03749999999999998,
+          "positive2|concrete": -0.04749999999999999,
+          "positive2|sports": -0.034999999999999976,
+          "concrete|sports": -0.02250000000000002
+        },
+        "corr": {
+          "n": 10,
+          "r": 0.7859816144447538,
+          "p": 0.007025210027235625
+        }
+      },
+      "B_abs_dev": {
+        "values": {
+          "formal|positive": 0.20999999999999996,
+          "formal|positive2": 0.10499999999999998,
+          "formal|concrete": 0.07750000000000001,
+          "formal|sports": 0.10250000000000004,
+          "positive|positive2": 0.0675,
+          "positive|concrete": 0.03249999999999997,
+          "positive|sports": 0.03749999999999998,
+          "positive2|concrete": 0.04749999999999999,
+          "positive2|sports": 0.034999999999999976,
+          "concrete|sports": 0.02250000000000002
+        },
+        "corr": {
+          "n": 10,
+          "r": 0.889956726981827,
+          "p": 0.0005606574466443631
+        }
+      }
+    }
+  },
+  "linear_combos": [
+    {
+      "predictor_a": "A_prime",
+      "predictor_b": "B_leakage",
+      "weight_optimised_on_mdlm": 0.012530989252632381,
+      "mdlm_corr": {
+        "n": 10,
+        "r": -0.8892323062861283,
+        "p": 0.0005750461139879079
+      },
+      "qwen_corr": {
+        "n": 10,
+        "r": 0.7858874523310148,
+        "p": 0.007036719640072356
+      },
+      "cross_corr": {
+        "n": 20,
+        "r": 0.47378307470114445,
+        "p": 0.034836781471755715
+      }
+    },
+    {
+      "predictor_a": "A_prime",
+      "predictor_b": "E_spatial",
+      "weight_optimised_on_mdlm": -0.35217935479332013,
+      "mdlm_corr": {
+        "n": 10,
+        "r": -0.34616027920468045,
+        "p": 0.32717296298933907
+      },
+      "qwen_corr": {
+        "n": 10,
+        "r": 0.0779811381059646,
+        "p": 0.8304498106337508
+      },
+      "cross_corr": {
+        "n": 20,
+        "r": -0.10742841774101407,
+        "p": 0.6521278359744416
+      }
+    },
+    {
+      "predictor_a": "A_prime",
+      "predictor_b": "F_js",
+      "weight_optimised_on_mdlm": 0.03781025162208862,
+      "mdlm_corr": {
+        "n": 10,
+        "r": -0.3045911171573375,
+        "p": 0.3921577730777957
+      },
+      "qwen_corr": {
+        "n": 10,
+        "r": 0.0996638353209151,
+        "p": 0.7841379981578236
+      },
+      "cross_corr": {
+        "n": 20,
+        "r": 0.03999615150814172,
+        "p": 0.867041721776783
+      }
+    },
+    {
+      "predictor_a": "B_leakage",
+      "predictor_b": "E_spatial",
+      "weight_optimised_on_mdlm": 0.954342977086568,
+      "mdlm_corr": {
+        "n": 10,
+        "r": -0.8898619252171001,
+        "p": 0.0005625252839498992
+      },
+      "qwen_corr": {
+        "n": 10,
+        "r": 0.7859937186537145,
+        "p": 0.00702373147644538
+      },
+      "cross_corr": {
+        "n": 20,
+        "r": 0.4728057811969873,
+        "p": 0.03526575777942387
+      }
+    },
+    {
+      "predictor_a": "B_leakage",
+      "predictor_b": "F_js",
+      "weight_optimised_on_mdlm": 1.4001841811975875,
+      "mdlm_corr": {
+        "n": 10,
+        "r": -0.9064035579234256,
+        "p": 0.0002994905476538742
+      },
+      "qwen_corr": {
+        "n": 10,
+        "r": 0.7841119729142435,
+        "p": 0.007256252791847194
+      },
+      "cross_corr": {
+        "n": 20,
+        "r": 0.47936248494002964,
+        "p": 0.03246507225513499
+      }
+    },
+    {
+      "predictor_a": "E_spatial",
+      "predictor_b": "F_js",
+      "weight_optimised_on_mdlm": 0.16637000194431723,
+      "mdlm_corr": {
+        "n": 10,
+        "r": -0.31098024383416667,
+        "p": 0.38178921929593523
+      },
+      "qwen_corr": {
+        "n": 10,
+        "r": 0.10315093106965985,
+        "p": 0.7767429136101545
+      },
+      "cross_corr": {
+        "n": 20,
+        "r": 0.03711791565259413,
+        "p": 0.8765368883589473
+      }
+    }
+  ]
+}
