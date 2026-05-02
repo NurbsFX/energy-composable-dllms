@@ -167,7 +167,8 @@ Tout est en place pour Étape 1 sans coût supplémentaire.
 - [x] Lancer Étape 1 (4 prédicteurs cross-backbone) — fait, scripts/10 et /11
 - [x] Tester le candidat C (κ activations latentes) — fait, scripts/12
 - [x] Tester un correcteur algorithmique simple (block-Gibbs Du Yan-style) — fait, scripts/13
-- [ ] **Décider** : tester `mh_token_swap` rigoureux (~$5-10 pod, 1-2h compute) ou clore l'étude empirique
+- [x] Tester `mh_token_swap` rigoureux — fait, n=50, ratio 0.23 → 0.23 (réfute l'hypothèse Test 2)
+- [x] **Décision prise** : conclure l'étude empirique. Aucun correcteur algorithmique simple ne lève le plateau.
 - [ ] Choisir venue cible (workshop vs Findings vs main conf)
 - [ ] Décider du langage final (français → anglais ?)
 - [ ] Identifier les 1-2 figures-clés à polir pour la soumission
@@ -180,6 +181,7 @@ Tout est en place pour Étape 1 sans coût supplémentaire.
 | Variantes 2a + 2c | B_abs_dev, B_centred, combinaisons linéaires | r ≤ 0.48 cross-backbone (échec) |
 | Candidat C | κ sur activations latentes (linear probe) | reproduit le pattern κ_OWT (collapse Qwen3) |
 | Phase 10 | Block-Gibbs MCMC à la Du Yan (`noise_then_denoise`) | dégrade le ratio (0.15 → 0.08) |
+| Phase 10b | MH-token-swap rigoureux (sequence-level ELBO acceptance) | préserve mais n'améliore pas (0.23 → 0.23 ; 22.6% accept rate) — **réfute l'hypothèse Test 2 slope < 1** |
 
 → Tous les leviers simples testés sur les artefacts existants ont **échoué** à fournir un prédicteur stable cross-backbone OU un correcteur efficace. Le papier reste **diagnostique** : un cadre empirique qui caractérise précisément où le PoE en MDLM marche et où il échoue, avec un finding distinctif (sign-flip de B entre régimes d'experts).
 

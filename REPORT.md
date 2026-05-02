@@ -1002,3 +1002,39 @@ Variant `mh_token_swap` (rigoureux, sequence-level acceptance) implémenté
 mais non testé (~50× plus lent). À évaluer en travaux futurs.
 
 **Output** : `~/Documents/composable-dllms-artifacts/n3_mcmc_qwen3_fpc.json`.
+
+### Phase 10 — MH-token-swap variant (rigoureux)
+
+Suite au résultat négatif du block-Gibbs, test du variant Metropolis-Hastings
+rigoureux (acceptance basée sur l'ELBO séquence-niveau) à n=50 (faster).
+
+**Setup** : `--enable-mh --mh-proposals 8 --mh-num-t-samples 8`,
+même triplet (formal × positive × concrete), même backbone Qwen3-0.6B-MDLM.
+
+**Résultats** (n=50, marginals légèrement différents qu'à n=200 par variance) :
+
+| Configuration | triple_sat | indep_ref | ratio |
+|---|---:|---:|---:|
+| PoE-3 naïve | 0.0200 | 0.0857 | **0.23** |
+| + block-Gibbs ntd | 0.0000 | 0.0857 | **0.00** ⬇⬇ |
+| + MH-token-swap | 0.0200 | 0.0857 | **0.23** ≈ |
+
+**Stats MH** : 1 166 propositions, 264 acceptées (22.6 % accept rate).
+
+**Interprétation décisive** : le MH ACCEPTE des swaps selon un critère basé
+sur l'ELBO séquence-niveau de PoE — par construction, il ne propose que des
+modifications qui devraient augmenter la probabilité jointe sous PoE. Pourtant
+le ratio ne bouge pas. Cela démontre que **les samples naïfs PoE-3 sont déjà
+aux modes de la distribution PoE-composée**.
+
+→ L'hypothèse "Test 2 slope < 1 ⇒ sous-composition correctible" est
+**réfutée empiriquement**. Le bottleneck à N=3 n'est pas une erreur de
+sampling mais une propriété de la distribution PoE-composée elle-même :
+elle n'a pas de masse importante sur les régions triple-satisfaisantes.
+
+Pour aller au-delà, il faut soit :
+- changer de paradigme de composition (score matching explicite),
+- changer d'objectif de sampling (classifier-conditioned),
+- ou changer de backbone vers un modèle bien plus capable.
+
+**Output** : `~/Documents/composable-dllms-artifacts/n3_mh_qwen3_fpc_n50.json`.

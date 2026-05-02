@@ -1,0 +1,59 @@
+{
+  "triplet": [
+    "formal",
+    "positive",
+    "concrete"
+  ],
+  "backbone": "dllm-hub/Qwen3-0.6B-diffusion-mdlm-v0.1",
+  "thresholds": {
+    "len": 60.0,
+    "form": 0.46235160529613495,
+    "sent": 0.888558566570282,
+    "sent2": 0.32372426986694336,
+    "conc": 2.9322500000000007,
+    "topic": 0.9994717389345169
+  },
+  "marginals": {
+    "formal": 0.68,
+    "positive": 0.42,
+    "concrete": 0.3
+  },
+  "indep_ref": 0.08568,
+  "triple_satisfaction": {
+    "naive": 0.02,
+    "noise_then_denoise": 0.0,
+    "mh_token_swap": 0.02
+  },
+  "ratios": {
+    "naive": 0.23342670401493928,
+    "noise_then_denoise": 0.0,
+    "mh_token_swap": 0.23342670401493928
+  },
+  "ntd_stats": {
+    "method": "noise_then_denoise",
+    "n_iters": 3,
+    "mask_fraction": 0.25,
+    "partial_denoise_steps": 64,
+    "n_samples": 50,
+    "n_attempts": 2196,
+    "n_changes": 1399,
+    "change_rate": 0.6370673952641166
+  },
+  "mh_stats": {
+    "method": "mh_token_swap",
+    "n_iters": 3,
+    "mh_proposals_per_iter": 8,
+    "n_attempts": 1166,
+    "n_accepted": 264,
+    "accept_rate": 0.22641509433962265
+  },
+  "config": {
+    "n_samples": 50,
+    "max_new_tokens": 48,
+    "num_steps": 256,
+    "mcmc_n_iters": 3,
+    "mcmc_mask_fraction": 0.25,
+    "mcmc_partial_steps": 64,
+    "enable_mh": true
+  }
+}
