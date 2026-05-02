@@ -685,7 +685,61 @@ Sur Qwen3, les corrélations s'effondrent à des niveaux comparables à κ_OWT (
 
 ---
 
-## 12. Conclusion
+## 12. Phase 10 — Tentative de correction par joint MCMC (Du Yan 2023 adapté)
+
+Au-delà de la prédiction, nous avons testé une **correction algorithmique directe** du déficit PoE-3 : appliquer un correcteur MCMC après la trajectoire de débruitage standard. L'idée est inspirée de Du Yan et al. 2023 (*Reduce, Reuse, Recycle*), qui montrent en diffusion d'images que la composition logit-par-step sous-évalue la composition séquence-niveau, et que des steps de MCMC supplémentaires peuvent corriger cette dérive.
+
+### 12.1 Hypothèse testée
+
+Le **Test 2** (Section 4) avait montré un slope de **0.857 < 1** entre les log-ratios PoE prédits et observés. Une lecture possible : la composition par-step sous-compose systématiquement, et un correcteur joint pourrait ramener le slope vers 1, augmentant les ratios N=3.
+
+### 12.2 Méthodologie
+
+Nous adaptons l'idée Du Yan (originalement Langevin en continu) au cas **discret** des MDLM via une variante **block Gibbs** (procédure `noise_then_denoise`) :
+
+Pour chaque sample issu du PoE-3 naïve, on répète $K = 3$ itérations de :
+1. **Re-noising** : masquer aléatoirement $\rho = 25\%$ des positions du sample.
+2. **Re-denoising partiel** : appliquer 64 sub-steps de débruitage MDLM utilisant les logits PoE-composés pour resampler les positions masquées.
+
+Cette procédure correspond à un **block-Gibbs sweep** sous la conditional PoE au niveau de masking choisi. Algorithmiquement plus rigoureux qu'un Gibbs single-position (que nous avions testé en Phase 7 avec dégradation), il préserve la structure jointe des positions non-masquées tout en redonnant au modèle plusieurs passages pour stabiliser le joint.
+
+Implémentation : `src/composition/joint_mcmc.py::noise_then_denoise()` ; runner : `scripts/13_n3_with_joint_mcmc.py`. Une seconde variante `mh_token_swap` (Metropolis-Hastings rigoureux avec ratio d'acceptance basé sur l'ELBO séquence-niveau) est aussi implémentée mais non testée par contraintes de compute (~50× plus lent que le block-Gibbs).
+
+### 12.3 Résultats
+
+Test sur le triplet `formal × positive × concrete` (le pire à N=3 sur Qwen3, ratio naïve 0.42 dans Phase 8 v1 à $n=500$ ; ici $n=200$) avec backbone `dllm-hub/Qwen3-0.6B-diffusion-mdlm-v0.1` :
+
+| Configuration | triple_sat | indep_ref | ratio |
+|---|---:|---:|---:|
+| PoE-3 naïve ($n=200$) | 0.0100 | 0.0652 | **0.15** |
+| PoE-3 + block-Gibbs MCMC ($K=3$, $\rho=0.25$, 64 sub-steps) | 0.0050 | 0.0652 | **0.08** ⬇ |
+
+**Stats du refinement** : 8 829 token swaps tentés, 5 526 changements appliqués (62.6 % de churn). Le MCMC modifie significativement les samples mais **dégrade le ratio joint** au lieu de le corriger.
+
+### 12.4 Interprétation
+
+Le block-Gibbs `noise_then_denoise` ne fonctionne pas comme attendu. Quatre explications possibles, à examiner dans les travaux futurs :
+
+1. **Le re-noising détruit l'information accumulée** : les 256 steps de débruitage initial ont convergé vers des positions globalement valides ; re-masquer 25 % brise cette structure jointe et le sub-débruitage n'a pas assez de contexte pour la reconstruire correctement.
+
+2. **64 sub-steps insuffisants pour le re-denoising** : un re-denoising complet (256 steps) coûterait ~4× plus cher mais pourrait être nécessaire pour ramener les positions masquées à un état joint valide.
+
+3. **Hypothèse Test 2 fausse** : le slope 0.857 < 1 ne traduit peut-être pas une erreur per-step réparable au niveau du sampling, mais reflète plutôt le bruit de l'estimation paired-MC ELBO ou une autre cause structurelle.
+
+4. **Block-Gibbs naïf trop greedy** : sampler depuis $\text{softmax}(\text{logits}_{\text{PoE}})$ sans correction Metropolis-Hastings tend vers les modes de la conditional, créant un mode collapse local que la procédure perpétue à chaque itération. Le variant `mh_token_swap` (acceptance basée sur l'ELBO séquence-niveau) corrigerait théoriquement ce biais mais n'a pas été testé par contraintes de compute.
+
+### 12.5 Implication pour le papier
+
+Ce **résultat négatif** complète le tableau diagnostique :
+
+- Aucun **prédicteur scalaire simple** n'est backbone-invariant (Section 11).
+- Aucune **correction algorithmique simple** (block-Gibbs naïve) ne brise le plateau N=3 (Section 12).
+
+→ La composition PoE-N≥3 sur MDLM-text reste un **problème ouvert**. Les pistes algorithmiques restantes (MH-token-swap rigoureux, score-based composition explicite à la Du Yan 2023 *complète*, training joint d'experts compatibles) requièrent un investissement de recherche significatif, hors-scope de cette étude empirique.
+
+---
+
+## 13. Conclusion
 
 Nous avons mené une étude empirique exhaustive de la composabilité par Product-of-Experts dans les Masked Diffusion Language Models. Les résultats principaux :
 
@@ -695,18 +749,21 @@ Nous avons mené une étude empirique exhaustive de la composabilité par Produc
 - Sur un **backbone 5× plus gros** (596M), le plateau est partiellement levé pour les compositions lexicales (ratio jusqu'à 1.84) mais pas pour les compositions stylistiques (ratio 0.42).
 - La corrélation entre **orthogonalité géométrique des proxies** (κ, CKA, MI) et **déficit de composition** observée sur le petit backbone (r = −0.92) **ne se généralise pas** au gros backbone (r = −0.24).
 - L'évaluation systématique de **5 prédicteurs candidats** (B leakage, F-js, A' logit-shift, E spatial overlap, C κ_act sur activations latentes — Section 11) révèle qu'**aucun n'atteint r > 0.7 cross-backbone**. Le prédicteur le plus puissant per-backbone (B leakage) **change de signe** entre les deux backbones, traduisant une distinction "experts faibles vs forts". Le candidat C (κ sur activations) reproduit le pattern de κ_OWT (forte corrélation MDLM, collapse Qwen3), confirmant que le problème n'est pas le choix de la métrique géométrique mais une propriété structurelle du régime de capacité du backbone.
+- La tentative de **correction algorithmique** par joint MCMC à la Du Yan 2023 (variante block-Gibbs `noise_then_denoise`, Section 12) ne lève pas le plateau N=3 : sur le triplet `formal × positive × concrete` du backbone Qwen3, le ratio passe de 0.15 (naïve, $n=200$) à **0.08 après MCMC**. Le re-noising/re-denoising détruit plus d'information jointe qu'il n'en corrige.
 
-Le papier prend ainsi sa forme finale : une **caractérisation empirique disciplinée** d'où PoE-on-MDLM marche et où il ne marche pas, accompagnée d'un finding empirique non-trivial — le **sign-flip de la corrélation leakage ↔ déficit** entre régimes d'experts. Cette observation, combinée aux ~30 calibrations testées sur N=3, motive une nouvelle classe de prédicteurs **régime-conscients** ou **structurels** (par exemple κ dans l'espace des activations latentes du modèle).
+Le papier prend ainsi sa forme finale : une **caractérisation empirique disciplinée** d'où PoE-on-MDLM marche et où il ne marche pas, accompagnée d'un finding empirique non-trivial — le **sign-flip de la corrélation leakage ↔ déficit** entre régimes d'experts. Cette observation, combinée aux ~30 calibrations testées sur N=3 et à l'échec de la correction MCMC simple, motive une nouvelle classe d'approches **régime-conscientes** (prédicteurs) ou **score-based explicites** (correcteurs algorithmiques) au-delà du sum-of-logits par-step.
 
 ### Travaux futurs
 
-1. **Étendre l'étude à un troisième backbone** (e.g., LLaDA, BERT-MDLM, Dream) pour vérifier le sign-flip de B et clarifier sa relation à la capacité du modèle.
+1. **Tester `mh_token_swap`** (Metropolis-Hastings avec acceptance basée sur l'ELBO séquence-niveau, déjà implémenté dans `src/composition/joint_mcmc.py`). Plus rigoureux que le block-Gibbs mais ~50× plus lent ; pourrait corriger le mode collapse observé en Section 12.
+
+2. **Étendre l'étude à un troisième backbone** (e.g., LLaDA, BERT-MDLM, Dream) pour vérifier le sign-flip de B et clarifier sa relation à la capacité du modèle.
 
 3. **Formaliser un prédicteur régime-conscient** : par exemple `sign(B - 0.25) × |B - 0.25|^β`, où β dépend d'une mesure de force des experts (norm des shifts de logits, ou divergence entre marginal expert et baseline).
 
 4. **Explorer la composition cross-axe entangled** : peut-on adapter le sampling pour découpler globaux vs locaux (style vs lexique) ?
 
-5. **Implémenter un correctif algorithmique à la Du Yan 2023** sur MDLM-text : MCMC joint sur la trajectoire de débruitage entière (pas seulement post-sampling Gibbs comme nous l'avons testé).
+5. **Implémenter un correctif algorithmique à la Du Yan 2023 *complet*** : score-based composition explicite sur MDLM-text, avec énergies apprises plutôt que sum-of-logits naïf.
 
 6. **Mesurer le déficit PoE via une métrique continue** plutôt que via top-quartile binarisation, pour étendre le scope à N≥4 sans saturation statistique.
 
@@ -730,6 +787,8 @@ Le papier prend ainsi sa forme finale : une **caractérisation empirique discipl
 | Phase 7a | Sweep λ uniforme + Bayesian | Pod, ~1 h |
 | Phase 7b (v2) | Schedules + MCMC | Pod, ~1 h |
 | Phase 8 | Pipeline complète sur Qwen3-0.6B | Pod, ~5 h |
+| Phase 9 | Évaluation des 4+1 prédicteurs candidats (B, F-js, A', E, C) | Local, ~1 h |
+| Phase 10 | Joint MCMC corrector à la Du Yan (block-Gibbs) | Pod, ~45 min |
 
 ### B. Fichiers de résultats
 

@@ -164,8 +164,31 @@ Tout est en place pour Étape 1 sans coût supplémentaire.
 
 ## Décisions actives à prendre
 
-- [ ] Lancer Étape 1 (4 prédicteurs cross-backbone)
-- [ ] Selon résultat : décider entre rédaction directe ou ajout correcteur
+- [x] Lancer Étape 1 (4 prédicteurs cross-backbone) — fait, scripts/10 et /11
+- [x] Tester le candidat C (κ activations latentes) — fait, scripts/12
+- [x] Tester un correcteur algorithmique simple (block-Gibbs Du Yan-style) — fait, scripts/13
+- [ ] **Décider** : tester `mh_token_swap` rigoureux (~$5-10 pod, 1-2h compute) ou clore l'étude empirique
 - [ ] Choisir venue cible (workshop vs Findings vs main conf)
 - [ ] Décider du langage final (français → anglais ?)
 - [ ] Identifier les 1-2 figures-clés à polir pour la soumission
+
+## Synthèse Phase 9 + Phase 10 (résultats post-prédicteurs)
+
+| Tentative | Méthode | Résultat |
+|---|---|---|
+| Étape 1 — 4 prédicteurs | B leakage, F-js, A' logit-shift, E spatial | r ≤ 0.48 cross-backbone (échec) |
+| Variantes 2a + 2c | B_abs_dev, B_centred, combinaisons linéaires | r ≤ 0.48 cross-backbone (échec) |
+| Candidat C | κ sur activations latentes (linear probe) | reproduit le pattern κ_OWT (collapse Qwen3) |
+| Phase 10 | Block-Gibbs MCMC à la Du Yan (`noise_then_denoise`) | dégrade le ratio (0.15 → 0.08) |
+
+→ Tous les leviers simples testés sur les artefacts existants ont **échoué** à fournir un prédicteur stable cross-backbone OU un correcteur efficace. Le papier reste **diagnostique** : un cadre empirique qui caractérise précisément où le PoE en MDLM marche et où il échoue, avec un finding distinctif (sign-flip de B entre régimes d'experts).
+
+## Pour la rédaction finale
+
+PAPER_DRAFT.md contient désormais :
+- Sections 1–9 : étude empirique multi-phase (Phases 1 à 8)
+- Section 10 : discussion + 4 candidats prédicteurs alternatifs
+- Section 11 : évaluation empirique des 5 prédicteurs (B, F-js, A', E, C)
+- Section 12 : tentative correction MCMC (block-Gibbs)
+- Section 13 : conclusion révisée + travaux futurs (incluant `mh_token_swap` non encore testé)
+- Annexes : récap phases (12 lignes), fichiers, fixes techniques, coût

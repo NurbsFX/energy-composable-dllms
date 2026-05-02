@@ -1,0 +1,52 @@
+{
+  "triplet": [
+    "formal",
+    "positive",
+    "concrete"
+  ],
+  "backbone": "dllm-hub/Qwen3-0.6B-diffusion-mdlm-v0.1",
+  "thresholds": {
+    "len": 60.0,
+    "form": 0.5777774006128311,
+    "sent": 0.9774872660636902,
+    "sent2": 0.41602788120508194,
+    "conc": 2.909826388888889,
+    "topic": 0.9992345571517944
+  },
+  "marginals": {
+    "formal": 0.535,
+    "positive": 0.42,
+    "concrete": 0.29
+  },
+  "indep_ref": 0.065163,
+  "triple_satisfaction": {
+    "naive": 0.01,
+    "noise_then_denoise": 0.005,
+    "mh_token_swap": null
+  },
+  "ratios": {
+    "naive": 0.1534613200742753,
+    "noise_then_denoise": 0.07673066003713765,
+    "mh_token_swap": null
+  },
+  "ntd_stats": {
+    "method": "noise_then_denoise",
+    "n_iters": 3,
+    "mask_fraction": 0.25,
+    "partial_denoise_steps": 64,
+    "n_samples": 200,
+    "n_attempts": 8829,
+    "n_changes": 5526,
+    "change_rate": 0.6258919469928644
+  },
+  "mh_stats": null,
+  "config": {
+    "n_samples": 200,
+    "max_new_tokens": 48,
+    "num_steps": 256,
+    "mcmc_n_iters": 3,
+    "mcmc_mask_fraction": 0.25,
+    "mcmc_partial_steps": 64,
+    "enable_mh": false
+  }
+}

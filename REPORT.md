@@ -963,3 +963,42 @@ paper. The honest framing positions this work as a careful
 characterization of where PoE-on-MDLM works and where it doesn't,
 opening directions for follow-up (entangled-axis composition,
 backbone-invariant deficit predictors, joint-trajectory MCMC).
+
+---
+
+## Phase 10 — Joint MCMC corrector (Du Yan 2023, discrete adaptation)
+
+Tentative de corriger algorithmiquement le déficit PoE-3 via un correcteur
+joint inspiré de Du Yan et al. 2023.
+
+**Hypothèse** : le slope 0.857 du Test 2 traduit une sous-composition
+per-step. Un block-Gibbs MCMC qui re-noise + re-denoise quelques positions
+pourrait restaurer le joint.
+
+**Setup** : `scripts/13_n3_with_joint_mcmc.py`, K=3 itérations × ρ=25 % mask
+× 64 sub-steps de re-débruitage. Triplet `formal × positive × concrete`,
+backbone Qwen3-0.6B-MDLM, n=200.
+
+**Résultats** :
+
+| Configuration | triple_sat | indep_ref | ratio |
+|---|---:|---:|---:|
+| PoE-3 naïve | 0.0100 | 0.0652 | 0.15 |
+| + block-Gibbs MCMC | 0.0050 | 0.0652 | **0.08** ⬇ |
+
+**Stats du refinement** : 8 829 token swaps, 5 526 changements (62.6 %).
+Le MCMC modifie significativement les samples mais dégrade le ratio joint.
+
+**Interprétation** : le block-Gibbs naïf détruit plus d'information jointe
+qu'il n'en corrige. Quatre hypothèses :
+
+1. Le re-noising de 25 % brise la structure jointe accumulée par les 256 steps initiaux.
+2. 64 sub-steps insuffisants pour le re-denoising (would need 256 = 4× cost).
+3. L'hypothèse Test 2 (slope < 1 ↔ sous-composition réparable) peut être fausse.
+4. Block-Gibbs sans MH est trop greedy ; le mode collapse local s'auto-renforce.
+
+→ **Plateau N=3 reste robuste** contre cette tentative de correction.
+Variant `mh_token_swap` (rigoureux, sequence-level acceptance) implémenté
+mais non testé (~50× plus lent). À évaluer en travaux futurs.
+
+**Output** : `~/Documents/composable-dllms-artifacts/n3_mcmc_qwen3_fpc.json`.
