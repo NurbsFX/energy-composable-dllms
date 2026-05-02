@@ -1,0 +1,56 @@
+{
+  "triplet": [
+    "formal",
+    "positive",
+    "concrete"
+  ],
+  "backbone": "kuleshov-group/mdlm-owt",
+  "n_samples": 50,
+  "indep_ref": 0.026880000000000005,
+  "marginals": {
+    "formal": 0.4,
+    "positive": 0.24,
+    "concrete": 0.28
+  },
+  "protocol_A": {
+    "candidates": [
+      -2.0,
+      -1.0,
+      -0.5,
+      0.0
+    ],
+    "ratios": {
+      "-2.0": 0.0,
+      "-1.0": 0.744047619047619,
+      "-0.5": 0.0,
+      "0.0": 0.0
+    },
+    "best_mu": -1.0,
+    "best_ratio": 0.744047619047619,
+    "n_evals": 4
+  },
+  "protocol_B": {
+    "n_iters": 4,
+    "history": [
+      [
+        -2.0,
+        0.0
+      ],
+      [
+        0.0,
+        0.0
+      ],
+      [
+        -2.5,
+        0.0
+      ],
+      [
+        0.5,
+        0.0
+      ]
+    ],
+    "best_mu": -2.0,
+    "best_ratio": 0.0,
+    "n_evals": 4
+  }
+}
