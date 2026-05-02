@@ -40,6 +40,13 @@ class PoEConfig:
     # the effective λ per denoising step — late_fire/cosine/exp let the
     # composition wait until the mostly-clean phase to push hard.
     lambda_schedule: str | None = None
+    # Decoupled coefficient on log p_base in the composition. ``None`` ≡
+    # standard PoE (coefficient = 1 − Σ λ_i). Setting an explicit value
+    # turns the composition into a "mixture-PoE" of the form
+    #   logits_custom = mu_base · logits_base + Σ λ_i · logits_i
+    # which lets us decouple how strongly OWT-typical text is penalised
+    # from how strongly experts push.
+    mu_base: float | None = None
 
 
 class PoECompositionModel:
@@ -64,12 +71,22 @@ class PoECompositionModel:
         lambdas: dict[str, float],
         lambda_schedule_fn=None,
         total_steps: int = 256,
+        mu_base: float | None = None,
     ):
         self.base = base_with_adapters
         self.lambdas = {k: float(v) for k, v in lambdas.items()}
         self.lambda_schedule_fn = lambda_schedule_fn
         self.total_steps = max(1, int(total_steps))
         self.step_count = 0
+        # ``mu_base`` decouples the coefficient on log p_base from (1 - Σλ_i).
+        # Standard PoE: mu_base = None → coefficient is (1 - Σλ_i), matching
+        #   logits_PoE = logits_base + Σ λ_i (logits_i − logits_base).
+        # Custom mixture-PoE: mu_base = float → coefficient on logits_base
+        #   becomes that value independently, allowing
+        #   logits_custom = mu_base · logits_base + Σ λ_i · logits_i
+        # (so e.g. mu_base = 0 yields a pure sum-of-experts; mu_base = -1 a
+        # half-strength PoE penalty at N=3 instead of the canonical -2).
+        self.mu_base = mu_base
         # Used by some HF utilities.
         self.device = next(base_with_adapters.parameters()).device
 
@@ -95,15 +112,27 @@ class PoECompositionModel:
             with self.base.disable_adapter():
                 logits_base = self.base(input_ids=input_ids, attention_mask=attention_mask).logits
 
-            logits_delta = torch.zeros_like(logits_base)
-            for name, lam in effective.items():
-                if lam == 0.0:
-                    continue
-                self.base.set_adapter(name)
-                logits_i = self.base(input_ids=input_ids, attention_mask=attention_mask).logits
-                logits_delta = logits_delta + lam * (logits_i - logits_base)
+            if self.mu_base is None:
+                # Standard PoE form: logits_PoE = logits_base + Σ λ_i (logits_i − logits_base)
+                logits_delta = torch.zeros_like(logits_base)
+                for name, lam in effective.items():
+                    if lam == 0.0:
+                        continue
+                    self.base.set_adapter(name)
+                    logits_i = self.base(input_ids=input_ids, attention_mask=attention_mask).logits
+                    logits_delta = logits_delta + lam * (logits_i - logits_base)
+                composed = logits_base + logits_delta
+            else:
+                # Decoupled mixture-PoE: logits_custom = mu_base · logits_base + Σ λ_i · logits_i
+                composed = float(self.mu_base) * logits_base
+                for name, lam in effective.items():
+                    if lam == 0.0:
+                        continue
+                    self.base.set_adapter(name)
+                    logits_i = self.base(input_ids=input_ids, attention_mask=attention_mask).logits
+                    composed = composed + lam * logits_i
 
-        return MaskedLMOutput(logits=logits_base + logits_delta)
+        return MaskedLMOutput(logits=composed)
 
 
 # Library of λ schedules over the denoising trajectory. Each takes
@@ -180,6 +209,7 @@ class PoESampler:
             lambdas,
             lambda_schedule_fn=sched_fn,
             total_steps=self.cfg.num_steps,
+            mu_base=self.cfg.mu_base,
         )
         self._wrapped_model = wrapped  # held so we can reset_step_count between attempts
         return MDLMSampler(model=wrapped, tokenizer=self.tokenizer, scheduler=scheduler)
