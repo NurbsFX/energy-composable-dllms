@@ -79,8 +79,8 @@ def main(
     from src.eval.joint_satisfaction import compute_thresholds
     from src.eval.scoring import SampleScorer
 
-    if len(triplet) != 3:
-        raise typer.BadParameter(f"triplet must have 3 names, got {triplet}")
+    if len(triplet) not in (2, 3):
+        raise typer.BadParameter(f"need 2 or 3 expert names (N=2 or N=3), got {triplet}")
 
     mu_list = [float(s.strip()) for s in mu_values.split(",") if s.strip()]
     typer.echo(f"Sweeping μ ∈ {mu_list} on triplet {triplet} ({backbone})")
@@ -123,10 +123,15 @@ def main(
             sum(r.proxy_scores[ek] >= thresholds[ek] for r in scored) / max(1, len(scored))
         )
         typer.echo(f"  marginal {name} = {marginals[name]:.3f}")
-    indep_ref = float(marginals[triplet[0]] * marginals[triplet[1]] * marginals[triplet[2]])
+    indep_ref = 1.0
+    for n in triplet:
+        indep_ref *= marginals[n]
+    indep_ref = float(indep_ref)
 
-    # Naïve PoE-3 (μ = None, standard) — for comparison
-    typer.echo("Sampling PoE-3 (μ standard, ≡ 1 − Σλ = -2 at N=3, λ=1)...")
+    # Naïve PoE-N (μ = None, standard) — for comparison
+    N = len(triplet)
+    standard_mu = 1 - N
+    typer.echo(f"Sampling PoE-{N} (μ standard, ≡ 1 − Σλ = {standard_mu} at N={N}, λ=1)...")
     torch.manual_seed(seed)
     naive_scored = [
         scorer.score(s) for s in poe_base.sample(prompts, lambdas={n: 1.0 for n in triplet})
@@ -139,8 +144,8 @@ def main(
 
     # Sweep over μ
     sweep_results: dict[str, dict] = {
-        "standard_-2": {
-            "mu": -2.0,
+        f"standard_{standard_mu:+g}": {
+            "mu": float(standard_mu),
             "triple_sat": triple_sat_standard,
             "ratio": triple_sat_standard / max(1e-9, indep_ref),
         }
