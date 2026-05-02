@@ -1,0 +1,54 @@
+{
+  "triplet": [
+    "formal",
+    "positive",
+    "concrete"
+  ],
+  "backbone": "dllm-hub/Qwen3-0.6B-diffusion-mdlm-v0.1",
+  "thresholds": {
+    "len": 60.0,
+    "form": 0.5777774006128311,
+    "sent": 0.9774872660636902,
+    "sent2": 0.41602788120508194,
+    "conc": 2.909826388888889,
+    "topic": 0.9992345571517944
+  },
+  "marginals": {
+    "formal": 0.535,
+    "positive": 0.42,
+    "concrete": 0.29
+  },
+  "indep_ref": 0.065163,
+  "config": {
+    "n_samples": 200,
+    "max_new_tokens": 48,
+    "num_steps": 256,
+    "mu_values": [
+      -1.25,
+      -1.0,
+      -0.75
+    ]
+  },
+  "sweep_results": {
+    "standard_-2": {
+      "mu": -2.0,
+      "triple_sat": 0.01,
+      "ratio": 0.1534613200742753
+    },
+    "mu_-1.25": {
+      "mu": -1.25,
+      "triple_sat": 0.025,
+      "ratio": 0.3836533001856882
+    },
+    "mu_-1.00": {
+      "mu": -1.0,
+      "triple_sat": 0.04,
+      "ratio": 0.6138452802971012
+    },
+    "mu_-0.75": {
+      "mu": -0.75,
+      "triple_sat": 0.025,
+      "ratio": 0.3836533001856882
+    }
+  }
+}
