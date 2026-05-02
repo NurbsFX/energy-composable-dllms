@@ -1,0 +1,204 @@
+{
+  "per_backbone": {
+    "mdlm_owt": {
+      "kappa_act": {
+        "formal|positive": 0.09034625740235003,
+        "formal|positive2": 0.029959467244469216,
+        "formal|concrete": 0.0064350242982591024,
+        "formal|sports": 0.00546056567309204,
+        "positive|positive2": 0.11361623265852475,
+        "positive|concrete": 0.043966254051416444,
+        "positive|sports": 0.07928255861822185,
+        "positive2|concrete": 0.02024914276296608,
+        "positive2|sports": 0.03306271837387011,
+        "concrete|sports": 0.0722992764306034
+      },
+      "cos_act": {
+        "formal|positive": 0.1593085378408432,
+        "formal|positive2": 0.04295537248253822,
+        "formal|concrete": -0.01188567653298378,
+        "formal|sports": 0.009049693122506142,
+        "positive|positive2": 0.18313728272914886,
+        "positive|concrete": -0.06235141679644585,
+        "positive|sports": 0.1128104105591774,
+        "positive2|concrete": -0.03390229493379593,
+        "positive2|sports": 0.050783511251211166,
+        "concrete|sports": -0.10401003062725067
+      },
+      "deficits": {
+        "formal|positive": -0.03,
+        "formal|positive2": -0.018500000000000003,
+        "formal|concrete": 0.0295,
+        "formal|sports": 0.004500000000000004,
+        "positive|positive2": -0.16350000000000003,
+        "positive|concrete": 0.024499999999999994,
+        "positive|sports": -0.0655,
+        "positive2|concrete": 0.03182499999999999,
+        "positive2|sports": 0.006824999999999998,
+        "concrete|sports": 0.02422500000000001
+      },
+      "corr_kappa_act_vs_deficit": {
+        "n": 10,
+        "r": -0.7579797571204994,
+        "p": 0.011075234439492192
+      },
+      "corr_cos_act_vs_deficit": {
+        "n": 10,
+        "r": -0.8285108113762132,
+        "p": 0.0030593959516644117
+      }
+    },
+    "qwen3": {
+      "kappa_act": {
+        "formal|positive": 0.0800638624144232,
+        "formal|positive2": 0.00472099327268243,
+        "formal|concrete": 0.006697022336255809,
+        "formal|sports": 0.044300984812313204,
+        "positive|positive2": 0.24956403573199376,
+        "positive|concrete": 0.03085832970320439,
+        "positive|sports": 0.005711482777683608,
+        "positive2|concrete": 0.0007857608389183106,
+        "positive2|sports": 0.06417134096582341,
+        "concrete|sports": 0.07276673536819964
+      },
+      "cos_act": {
+        "formal|positive": 0.1423816680908203,
+        "formal|positive2": 0.006843251176178455,
+        "formal|concrete": -0.015445652417838573,
+        "formal|sports": -0.08753404021263123,
+        "positive|positive2": 0.39438238739967346,
+        "positive|concrete": -0.04663250595331192,
+        "positive|sports": -0.008182264864444733,
+        "positive2|concrete": 0.001535550458356738,
+        "positive2|sports": -0.11004810780286789,
+        "concrete|sports": -0.10512366890907288
+      },
+      "deficits": {
+        "formal|positive": 0.17600000000000002,
+        "formal|positive2": 0.0895,
+        "formal|concrete": 0.03625000000000002,
+        "formal|sports": 0.035500000000000004,
+        "positive|positive2": -0.0582,
+        "positive|concrete": -0.009499999999999995,
+        "positive|sports": -0.011800000000000019,
+        "positive2|concrete": 0.004750000000000004,
+        "positive2|sports": -0.00910000000000001,
+        "concrete|sports": -0.10225000000000001
+      },
+      "corr_kappa_act_vs_deficit": {
+        "n": 10,
+        "r": -0.2914167911967208,
+        "p": 0.4139597508199004
+      },
+      "corr_cos_act_vs_deficit": {
+        "n": 10,
+        "r": 0.08330639631697609,
+        "p": 0.8190266877847698
+      }
+    }
+  },
+  "cross_backbone": {
+    "kappa_act": {
+      "predictor_values": {
+        "mdlm_owt/formal|positive": 0.09034625740235003,
+        "mdlm_owt/formal|positive2": 0.029959467244469216,
+        "mdlm_owt/formal|concrete": 0.0064350242982591024,
+        "mdlm_owt/formal|sports": 0.00546056567309204,
+        "mdlm_owt/positive|positive2": 0.11361623265852475,
+        "mdlm_owt/positive|concrete": 0.043966254051416444,
+        "mdlm_owt/positive|sports": 0.07928255861822185,
+        "mdlm_owt/positive2|concrete": 0.02024914276296608,
+        "mdlm_owt/positive2|sports": 0.03306271837387011,
+        "mdlm_owt/concrete|sports": 0.0722992764306034,
+        "qwen3/formal|positive": 0.0800638624144232,
+        "qwen3/formal|positive2": 0.00472099327268243,
+        "qwen3/formal|concrete": 0.006697022336255809,
+        "qwen3/formal|sports": 0.044300984812313204,
+        "qwen3/positive|positive2": 0.24956403573199376,
+        "qwen3/positive|concrete": 0.03085832970320439,
+        "qwen3/positive|sports": 0.005711482777683608,
+        "qwen3/positive2|concrete": 0.0007857608389183106,
+        "qwen3/positive2|sports": 0.06417134096582341,
+        "qwen3/concrete|sports": 0.07276673536819964
+      },
+      "deficits": {
+        "mdlm_owt/formal|positive": -0.03,
+        "mdlm_owt/formal|positive2": -0.018500000000000003,
+        "mdlm_owt/formal|concrete": 0.0295,
+        "mdlm_owt/formal|sports": 0.004500000000000004,
+        "mdlm_owt/positive|positive2": -0.16350000000000003,
+        "mdlm_owt/positive|concrete": 0.024499999999999994,
+        "mdlm_owt/positive|sports": -0.0655,
+        "mdlm_owt/positive2|concrete": 0.03182499999999999,
+        "mdlm_owt/positive2|sports": 0.006824999999999998,
+        "mdlm_owt/concrete|sports": 0.02422500000000001,
+        "qwen3/formal|positive": 0.17600000000000002,
+        "qwen3/formal|positive2": 0.0895,
+        "qwen3/formal|concrete": 0.03625000000000002,
+        "qwen3/formal|sports": 0.035500000000000004,
+        "qwen3/positive|positive2": -0.0582,
+        "qwen3/positive|concrete": -0.009499999999999995,
+        "qwen3/positive|sports": -0.011800000000000019,
+        "qwen3/positive2|concrete": 0.004750000000000004,
+        "qwen3/positive2|sports": -0.00910000000000001,
+        "qwen3/concrete|sports": -0.10225000000000001
+      },
+      "corr": {
+        "n": 20,
+        "r": -0.38991522080252766,
+        "p": 0.08922436556162101
+      }
+    },
+    "cos_act": {
+      "predictor_values": {
+        "mdlm_owt/formal|positive": 0.1593085378408432,
+        "mdlm_owt/formal|positive2": 0.04295537248253822,
+        "mdlm_owt/formal|concrete": -0.01188567653298378,
+        "mdlm_owt/formal|sports": 0.009049693122506142,
+        "mdlm_owt/positive|positive2": 0.18313728272914886,
+        "mdlm_owt/positive|concrete": -0.06235141679644585,
+        "mdlm_owt/positive|sports": 0.1128104105591774,
+        "mdlm_owt/positive2|concrete": -0.03390229493379593,
+        "mdlm_owt/positive2|sports": 0.050783511251211166,
+        "mdlm_owt/concrete|sports": -0.10401003062725067,
+        "qwen3/formal|positive": 0.1423816680908203,
+        "qwen3/formal|positive2": 0.006843251176178455,
+        "qwen3/formal|concrete": -0.015445652417838573,
+        "qwen3/formal|sports": -0.08753404021263123,
+        "qwen3/positive|positive2": 0.39438238739967346,
+        "qwen3/positive|concrete": -0.04663250595331192,
+        "qwen3/positive|sports": -0.008182264864444733,
+        "qwen3/positive2|concrete": 0.001535550458356738,
+        "qwen3/positive2|sports": -0.11004810780286789,
+        "qwen3/concrete|sports": -0.10512366890907288
+      },
+      "deficits": {
+        "mdlm_owt/formal|positive": -0.03,
+        "mdlm_owt/formal|positive2": -0.018500000000000003,
+        "mdlm_owt/formal|concrete": 0.0295,
+        "mdlm_owt/formal|sports": 0.004500000000000004,
+        "mdlm_owt/positive|positive2": -0.16350000000000003,
+        "mdlm_owt/positive|concrete": 0.024499999999999994,
+        "mdlm_owt/positive|sports": -0.0655,
+        "mdlm_owt/positive2|concrete": 0.03182499999999999,
+        "mdlm_owt/positive2|sports": 0.006824999999999998,
+        "mdlm_owt/concrete|sports": 0.02422500000000001,
+        "qwen3/formal|positive": 0.17600000000000002,
+        "qwen3/formal|positive2": 0.0895,
+        "qwen3/formal|concrete": 0.03625000000000002,
+        "qwen3/formal|sports": 0.035500000000000004,
+        "qwen3/positive|positive2": -0.0582,
+        "qwen3/positive|concrete": -0.009499999999999995,
+        "qwen3/positive|sports": -0.011800000000000019,
+        "qwen3/positive2|concrete": 0.004750000000000004,
+        "qwen3/positive2|sports": -0.00910000000000001,
+        "qwen3/concrete|sports": -0.10225000000000001
+      },
+      "corr": {
+        "n": 20,
+        "r": -0.22544739799711225,
+        "p": 0.3392271431858431
+      }
+    }
+  }
+}

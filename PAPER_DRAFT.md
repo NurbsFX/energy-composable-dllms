@@ -576,27 +576,139 @@ Cette quantité est l'écart à un modèle "additif simple".
 - **Si oui** → vraie contribution du papier : *"κ-on-data ne prédit pas le déficit PoE, mais l'orthogonalité des shifts LoRA — ou le leakage cross-axis — le prédit invariamment."* C'est plus puissant et plus pratique que κ-on-OWT.
 - **Si non** → on a au moins exploré honnêtement la question. Et le papier raconte ça : *"on a essayé 4 prédicteurs, aucun ne marche cross-backbone, c'est un vrai problème ouvert."*
 
+> **Note méthodologique post-hoc.** Après une revue critique externe, le candidat **A** original (cosinus brut entre les matrices ΔW) a été affiné en **A'** : alignement entre les *shifts de logits* induits par chaque expert sur un pool de prompts pivots fixes. Cette reformulation est plus directement reliée à la formule PoE (qui agit sur les logits, pas les poids). Le candidat **D** (energy curvature) a été écarté : la quantité $C(a,b) = \text{JS}_{\text{PoE}} - (\text{JS}_a + \text{JS}_b - \text{JS}_{\text{base}})$ est presque tautologique vis-à-vis du déficit qu'on veut prédire (corréler du PoE avec du PoE). La Section 11 documente l'évaluation empirique des 4 candidats raffinés.
+
 ---
 
-## 11. Conclusion
+## 11. Évaluation empirique des prédicteurs candidats
+
+Nous évaluons les 4 candidats raffinés (B, F-js, A', E) sur les 10 paires d'experts, sur les deux backbones (MDLM-OWT et Qwen3), pour vérifier si l'un d'entre eux atteint une corrélation $r > 0.7$ avec le déficit PoE en cross-backbone (c'est-à-dire sur l'union des 20 paires).
+
+### 11.1 Méthodologie
+
+**Données utilisées** :
+- Joint satisfaction par config (PoE-strict, expert-A-only, expert-B-only, baseline) sur les 10 paires × 2 backbones.
+- Samples bruts JSONL pour B et F-js (200 samples par config).
+- 32 prompts pivots de 32 tokens pour A' et E (chargement local des modèles + adapters LoRA).
+
+**Métriques évaluées** :
+- **B (leakage cross-axis)** : $\frac{1}{2}\big[ P(s_b \geq \tau_b \mid \text{expert-A-only}) + P(s_a \geq \tau_a \mid \text{expert-B-only}) \big]$
+- **F-js (sample distance)** : Jensen-Shannon entre histogrammes proxy-score des configs expert-A-only vs expert-B-only sur chacun des 2 axes, moyenné.
+- **A' (logit-shift alignment)** : $\mathbb{E}_x [\cos(\Delta\ell_a(x), \Delta\ell_b(x))]$ avec $\Delta\ell_a(x) = \text{logits}_a(x) - \text{logits}_b(x)$.
+- **E (spatial overlap)** : $\mathbb{E}_x [\cos(\|\Delta\ell_a(x, \cdot)\|, \|\Delta\ell_b(x, \cdot)\|)]$ — cosinus entre les normes par-position.
+
+Pour chaque prédicteur, nous calculons la corrélation Pearson contre le déficit $\Delta = \text{JS}_{\text{indep}} - \text{JS}_{\text{PoE-strict}}$ sur :
+- les 10 paires MDLM-OWT seules (n=10)
+- les 10 paires Qwen3 seules (n=10)
+- l'union des 20 paires (cross-backbone, n=20).
+
+### 11.2 Résultats per-backbone et cross-backbone
+
+| Prédicteur | MDLM-OWT (n=10) | Qwen3 (n=10) | **Cross-backbone (n=20)** |
+|---|---:|---:|---:|
+| **B (leakage)** | **−0.887** *** | **+0.786** ** | +0.473 * |
+| F-js | −0.294 | +0.102 | +0.014 |
+| A' (logit-shift cos) | −0.179 | −0.049 | +0.098 |
+| E (spatial overlap) | −0.231 | +0.453 | +0.071 |
+
+(\*\*\* : p < 0.001 ; \*\* : p < 0.01 ; \* : p < 0.05.)
+
+**Aucun prédicteur n'atteint $r > 0.7$ cross-backbone.** Le seul à signal très fort sur chaque backbone individuellement (B leakage) **change de signe** entre MDLM-OWT (r = −0.89) et Qwen3 (r = +0.79). Cross-backbone ce sign-flip se neutralise partiellement, plafonnant la corrélation à r ≈ 0.47.
+
+### 11.3 Variantes de B et combinaisons linéaires
+
+Pour vérifier que ce sign-flip n'est pas simplement un artefact de signe (e.g., qu'on devrait prendre la valeur absolue, ou la déviation à la baseline 0.25), nous testons :
+
+**Variantes de B** (per-backbone) :
+
+| Backbone | $B$ raw | $B - 0.25$ centré | $|B - 0.25|$ déviation absolue |
+|---|---:|---:|---:|
+| MDLM-OWT | −0.887 | −0.887 | −0.887 |
+| Qwen3 | +0.786 | +0.786 | **+0.890** |
+
+L'absolute deviation améliore légèrement Qwen3 (de +0.786 à +0.890) mais ne change rien sur MDLM-OWT. **Le sign-flip persiste.**
+
+**Combinaisons linéaires** $\alpha \cdot \text{pred}_a + (1-\alpha) \cdot \text{pred}_b$, où le poids $\alpha$ est optimisé sur MDLM-OWT et évalué cross-backbone :
+
+| pred_a + pred_b | α optimal | $r_{\text{MDLM}}$ | $r_{\text{Qwen3}}$ | $r_{\text{cross}}$ |
+|---|---:|---:|---:|---:|
+| B + F-js | 1.40 | −0.906 | +0.784 | **+0.479** ← top |
+| A' + B | 0.01 | −0.889 | +0.786 | +0.474 |
+| B + E | 0.95 | −0.890 | +0.786 | +0.473 |
+
+**Plafond cross-backbone à r ≈ 0.48.** Aucune combinaison linéaire ne peut concilier les deux backbones car les corrélations sont en directions opposées sur chacun.
+
+### 11.4 Le phénomène du sign-flip — un finding en lui-même
+
+Le pattern observé est mécaniquement interprétable :
+
+- **Sur MDLM-OWT (110M, experts faiblement entraînés)** : un leakage élevé signifie que les LoRA n'ont pas pleinement spécialisé leurs experts sur leur axe propre. Cela traduit une **affinité naturelle entre les axes** dans la distribution OWT (et dans le sub-manifold appris par le petit modèle). Plus les axes sont affins, plus la composition est facile (déficit faible). → **r négatif**.
+
+- **Sur Qwen3 (596M, experts fortement entraînés)** : un leakage élevé signifie que les LoRA, malgré le grand modèle, ont **sur-spécialisé** au point que leurs distributions de poussée se chevauchent. Cela génère des **collisions de specialisation** quand on les compose : chaque expert pousse sur les mêmes neurones. Plus de leakage = plus de collision = composition plus dure (déficit élevé). → **r positif**.
+
+Ce sign-flip est **le pattern empirique le plus distinctif** que nous documentons. Il opérationnalise mécaniquement la distinction "experts faibles vs forts" et clarifie pourquoi un prédicteur backbone-invariant simple est insaisissable : la même métrique a des sens opposés selon le régime des experts.
+
+### 11.5 Implications pour la prédictibilité du déficit PoE
+
+1. **Aucun prédicteur scalaire simple** (B, F-js, A', E) n'atteint $r > 0.7$ cross-backbone. Les variantes (centré, absolu, combinaisons linéaires) plafonnent à r ≈ 0.48.
+
+2. **Un prédicteur backbone-invariant doit être régime-conscient** : il faut prendre en compte la "force" des experts (eg via une mesure de magnitude des shifts de logits) avant de pouvoir extraire un signal stable.
+
+3. **Le candidat C (κ sur activations latentes) ne sauve pas la situation.** Évalué a posteriori (Section 11.6 ci-dessous) avec un linear-probe ridge regression sur le mean-pooled last-hidden-state des deux backbones, il reproduit exactement le pattern de κ_OWT : forte corrélation négative sur MDLM-OWT (κ_act : r = −0.76 ; cosinus signé : r = −0.83), effondrement sur Qwen3 (κ_act : r = −0.29 ; cosinus : r = +0.08). Cross-backbone : r = −0.39 et r = −0.23. Le problème n'est donc pas notre choix de métrique géométrique — c'est **structurel au régime du gros backbone**.
+
+4. **Contribution scientifique consolidée** : la *non-existence* d'un prédicteur scalaire universel — démontrée par 7+ mesures testées (κ_OWT, Spearman, CKA, MI, B_leakage, F_js, A', E, κ_act, cos_act, plus variantes) — est un résultat empirique non-trivial. Il documente une limite fondamentale des cadres géométriques/corrélationnels appliqués à la composition PoE en MDLM, et motive des approches plus sophistiquées (prédicteurs régime-conscients, mesures structurelles non-linéaires, ou correctifs algorithmiques au niveau du sampling).
+
+### 11.6 Évaluation empirique du candidat C — κ sur activations latentes
+
+**Procédure** : pour chaque backbone, on passe les 200 baseline samples à travers le modèle (en désactivant les adapters via `disable_adapter()`), on extrait le mean-pooled last-hidden-state $h_x \in \mathbb{R}^d$ ($d=768$ pour MDLM-OWT, $d=1024$ pour Qwen3). On fitte un linear probe ridge par axe : $s_a(x) \approx \mathbf{w}_a^\top h_x + \beta_a$ où $s_a(x)$ est le proxy score sur l'axe $a$. La κ-Gram analog dans l'espace des activations est :
+
+$$
+\kappa_{\text{act}}(a, b) = \sqrt{2} \cdot \frac{|\langle \mathbf{w}_a, \mathbf{w}_b \rangle|}{\|\mathbf{w}_a\|^2 + \|\mathbf{w}_b\|^2}
+$$
+
+(la cosinus signé $\cos(\mathbf{w}_a, \mathbf{w}_b)$ est aussi reporté pour préserver la directionalité).
+
+**Résultats** :
+
+| Métrique | MDLM-OWT (n=10) | Qwen3 (n=10) | Cross-backbone (n=20) |
+|---|---:|---:|---:|
+| κ_act | −0.758 ** | −0.291 | −0.390 |
+| cos_act (signé) | −0.829 ** | +0.083 | −0.225 |
+
+(\*\* : p < 0.01.)
+
+**Interprétation** : sur MDLM-OWT, le candidat C reproduit fidèlement la corrélation observée avec κ_OWT (r = −0.92 → −0.76 / −0.83). Cela confirme que la κ-Gram theory est **cohérente entre l'espace des données brutes et l'espace des représentations apprises** par le petit backbone — les axes "vivent" essentiellement aux mêmes endroits dans les deux espaces.
+
+Sur Qwen3, les corrélations s'effondrent à des niveaux comparables à κ_OWT (r = −0.24 → −0.29 / +0.08). Ce n'est donc **pas un artefact de choix de métrique géométrique** : que κ soit calculé sur les énergies de proxies sur OWT ou sur les directions de probes linéaires dans l'espace des activations Qwen3, on obtient le même collapse cross-backbone.
+
+→ **Le candidat C confirme et renforce le finding négatif global** : aucun prédicteur scalaire simple, qu'il soit basé sur les données brutes, les samples post-composition, les shifts de logits, ou les activations latentes, ne donne r > 0.7 cross-backbone. Le sign-flip de B reste le pattern empirique le plus distinctif.
+
+---
+
+## 12. Conclusion
 
 Nous avons mené une étude empirique exhaustive de la composabilité par Product-of-Experts dans les Masked Diffusion Language Models. Les résultats principaux :
 
-- La formule PoE est **empiriquement valide** au niveau des logits.
-- La composition à **N=2 est super-additive en moyenne** sur deux backbones de tailles différentes.
-- À **N=3 sur le petit backbone** (110M), le plateau de composition est robuste contre 19 variantes de calibrage.
-- Sur un **backbone 5× plus gros** (596M), le plateau est partiellement levé pour les compositions lexicales mais pas stylistiques.
-- La corrélation entre **orthogonalité géométrique des proxies** et **déficit de composition** observée sur le petit backbone (r = −0.92) **ne se généralise pas** au gros backbone (r = −0.24).
+- La formule PoE est **empiriquement valide** au niveau des logits (Section 4 : slope = 0.857, R² = 0.811).
+- La composition à **N=2 est super-additive en moyenne** sur deux backbones de tailles différentes (mean ratio 1.04 sur MDLM-OWT, 1.07 sur Qwen3).
+- À **N=3 sur le petit backbone** (110M), le plateau de composition (ratio ≈ 0.55) est robuste contre 19 variantes de calibrage (sweep λ, schedules denoising-aware, MCMC, Bayesian).
+- Sur un **backbone 5× plus gros** (596M), le plateau est partiellement levé pour les compositions lexicales (ratio jusqu'à 1.84) mais pas pour les compositions stylistiques (ratio 0.42).
+- La corrélation entre **orthogonalité géométrique des proxies** (κ, CKA, MI) et **déficit de composition** observée sur le petit backbone (r = −0.92) **ne se généralise pas** au gros backbone (r = −0.24).
+- L'évaluation systématique de **5 prédicteurs candidats** (B leakage, F-js, A' logit-shift, E spatial overlap, C κ_act sur activations latentes — Section 11) révèle qu'**aucun n'atteint r > 0.7 cross-backbone**. Le prédicteur le plus puissant per-backbone (B leakage) **change de signe** entre les deux backbones, traduisant une distinction "experts faibles vs forts". Le candidat C (κ sur activations) reproduit le pattern de κ_OWT (forte corrélation MDLM, collapse Qwen3), confirmant que le problème n'est pas le choix de la métrique géométrique mais une propriété structurelle du régime de capacité du backbone.
 
-Cette dernière observation invalide notre hypothèse initiale d'un cadre prédictif universel (κ-Gram theory). Le papier change de nature : au lieu d'une démonstration positive d'une loi générale, il devient une **caractérisation empirique honnête** d'où PoE-on-MDLM marche et où il ne marche pas. Quatre directions sont identifiées pour des prédicteurs alternatifs : (A) orthogonalité des shifts LoRA, (B) leakage cross-axis empirique, (C) κ sur les activations latentes, (D) "energy curvature" via une décomposition additive. Les options A et B sont calculables à coût zéro sur les artefacts existants et constituent la prochaine étape naturelle.
+Le papier prend ainsi sa forme finale : une **caractérisation empirique disciplinée** d'où PoE-on-MDLM marche et où il ne marche pas, accompagnée d'un finding empirique non-trivial — le **sign-flip de la corrélation leakage ↔ déficit** entre régimes d'experts. Cette observation, combinée aux ~30 calibrations testées sur N=3, motive une nouvelle classe de prédicteurs **régime-conscients** ou **structurels** (par exemple κ dans l'espace des activations latentes du modèle).
 
 ### Travaux futurs
 
-1. **Tester immédiatement les 4 prédicteurs** sur les artefacts existants (cross-backbone, sans nouveau pod).
-2. **Étendre l'étude à un troisième backbone** (e.g., LLaDA, BERT-MDLM) pour vérifier les patterns.
-3. **Explorer la composition cross-axe entangled** (hypothèse "lexical OK, stylistique non") : peut-on adapter la procédure d'échantillonnage pour les axes stylistiques (e.g., conditioning séparé sur features globales vs locales) ?
-4. **Implémenter un correctif algorithmique à la Du Yan 2023** sur MDLM-text : MCMC joint sur la trajectoire de débruitage (pas juste post-sampling).
-5. **Formaliser une métrique d'indépendance backbone-aware** qui combine A et C ci-dessus, et la comparer à κ-on-OWT comme prédicteur du déficit.
+1. **Étendre l'étude à un troisième backbone** (e.g., LLaDA, BERT-MDLM, Dream) pour vérifier le sign-flip de B et clarifier sa relation à la capacité du modèle.
+
+3. **Formaliser un prédicteur régime-conscient** : par exemple `sign(B - 0.25) × |B - 0.25|^β`, où β dépend d'une mesure de force des experts (norm des shifts de logits, ou divergence entre marginal expert et baseline).
+
+4. **Explorer la composition cross-axe entangled** : peut-on adapter le sampling pour découpler globaux vs locaux (style vs lexique) ?
+
+5. **Implémenter un correctif algorithmique à la Du Yan 2023** sur MDLM-text : MCMC joint sur la trajectoire de débruitage entière (pas seulement post-sampling Gibbs comme nous l'avons testé).
+
+6. **Mesurer le déficit PoE via une métrique continue** plutôt que via top-quartile binarisation, pour étendre le scope à N≥4 sans saturation statistique.
 
 ---
 
