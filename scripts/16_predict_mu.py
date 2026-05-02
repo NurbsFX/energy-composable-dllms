@@ -166,17 +166,17 @@ def main(
     artifact_root: Path = Path.home() / "Documents/composable-dllms-artifacts",
     out_json: Path = Path("artifacts/predict_mu.json"),
 ) -> None:
-    # Load all available μ-sweep records from local artifacts
+    # Load all available μ-sweep records from local artifacts.
+    # Sources: initial Phase 11 sweep, Phase 11 verifications (mu/),
+    # and Phase 12c extras (mu_extra/) — all are μ-sweep JSONs with the
+    # same schema produced by scripts/14_mu_sweep.py.
     records: list[dict] = []
-    candidate_files = (
-        [
-            artifact_root / "n3_mu_sweep.json",
-        ]
-        + sorted((artifact_root / "mu").glob("*.json"))
-        if (artifact_root / "mu").exists()
-        else [artifact_root / "n3_mu_sweep.json"]
-    )
-    for path in candidate_files:
+    candidate_paths = [artifact_root / "n3_mu_sweep.json"]
+    for sub in ("mu", "mu_extra"):
+        sub_dir = artifact_root / sub
+        if sub_dir.exists():
+            candidate_paths.extend(sorted(sub_dir.glob("*.json")))
+    for path in candidate_paths:
         if not path.exists():
             continue
         try:
