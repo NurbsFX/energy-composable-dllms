@@ -920,11 +920,26 @@ Trois artefacts résument visuellement les Phases 11 et 12 (`artifacts/plots/`) 
 * **`predictor_loo_scatter.png`** — predicted vs ground-truth μ\* sur les 17 setups, avec ligne y = x et résidus. Le predictor compresse vers la médiane (attendu pour une régression linéaire sur n=17), mais sépare correctement les régimes Qwen3 vs MDLM-OWT et N=2 vs N=3.
 * **`phase11_gains_table.md`** — tableau récapitulatif des 16 sweeps unique (par couple triplet × backbone), avec canonical ratio, best μ, best ratio et gain.
 
-### 14.6 μ-schedule par-step (infrastructure prête, sweep à conduire)
+### 14.6 μ-schedule par-step — la phase early du denoising fixe le résultat
 
-Le μ optimal pourrait varier le long de la trajectoire de denoising — analogue à l'option β de Phase 7b sur λ. Le code (`src/composition/poe_sampler.py::PoEConfig.mu_schedule + mu_base_end`) interpole `μ_eff(p) = μ_start + (μ_end − μ_start) · σ(p)` où σ est l'une des shapes existantes (`linear`, `cosine`, `late_fire`, `early_fire`). Hypothèse : `late_fire` (canonical $1-N$ tôt, μ relâché tard) devrait dominer si le besoin de pénalisation OWT s'atténue à mesure que la séquence se clarifie.
+Le μ optimal pourrait-il varier le long de la trajectoire de denoising, analogue à l'option β de Phase 7b sur λ ? Le code (`src/composition/poe_sampler.py::PoEConfig.mu_schedule + mu_base_end`) interpole `μ_eff(p) = μ_start + (μ_end − μ_start) · σ(p)` où σ ∈ {`linear`, `cosine`, `late_fire`, `early_fire`}. Hypothèse de départ : `late_fire` (μ canonical $1-N$ tôt, relâché tard) devrait dominer si la pénalisation OWT s'atténue à mesure que la séquence se clarifie.
 
-Sweep conçu (`scripts/17_mu_schedule_sweep.py`, ~6 min pod par setup) : 2 contrôles à μ constant + 4 schedules sur Qwen3 formal × positive × concrete. Reste à exécuter quand un pod est de nouveau disponible. Le baseline à battre est ratio = 0.61 (μ ≡ −1 constant).
+**Sweep** (`scripts/17_mu_schedule_sweep.py`, Qwen3-0.6B, formal × positive × concrete, $n=200$, μ_start = −2, μ_end = −1) :
+
+| Config | μ early | μ late | triple-sat | ratio |
+|---|---:|---:|---:|---:|
+| constant μ = −2 (canonical) | −2 | −2 | 0.010 | 0.15 |
+| **constant μ = −1 (Phase 11)** | **−1** | **−1** | **0.040** | **0.61** ⭐ |
+| linear (−2 → −1) | −2 | −1 | 0.010 | 0.15 |
+| cosine (−2 → −1) | −2 | −1 | 0.010 | 0.15 |
+| late_fire (−2 → −1) | −2 | −1 | 0.010 | 0.15 |
+| **early_fire (−1 → −2)** | **−1** | **−2** | **0.040** | **0.61** ⭐ |
+
+**Finding** : *toutes* les schedules qui démarrent à μ = −2 reproduisent constant μ = −2 (ratio 0.15) ; *toutes* les configurations qui démarrent à μ = −1 reproduisent constant μ = −1 (ratio 0.61). La phase **early** du denoising fixe entièrement le résultat — le late switch arrive trop tard pour rattraper. C'est exactement le miroir du finding Phase 7b sur λ : les schedules ne battent pas la meilleure constante.
+
+**Implication mécaniste** : sous PoE-N, la trajectoire de denoising est essentiellement déterminée pendant la première moitié de la trajectoire ; les itérations tardives raffinent une distribution déjà "verrouillée" par le coefficient μ early. Une schedule qui mise sur du raffinement tardif n'a aucune marge à exploiter. Cela exclut une classe entière d'optimisations potentielles ("démarrer canonical pour la sécurité, terminer relâché pour la flexibilité") et **renforce le rôle de la calibration de μ comme un seul scalaire global** — il n'y a rien à gagner à le faire varier.
+
+Plot : `artifacts/plots/mu_schedule_bar.png`. Output : `artifacts/mu_schedule_qwen3_fpc.json`.
 
 ---
 
@@ -944,6 +959,8 @@ Nous avons mené une étude empirique exhaustive de la composabilité par Produc
 
 - Trois **protocoles d'auto-calibration de μ** ont été comparés (Section 14) : grille fixe (A), Bayesian optimization (B), et predictor structurel (C). À $n=200$, A est fiable (3/3 setups) mais coûteux ; B est instable (dépendance forte au seed et au kernel GP) ; C, une régression linéaire sur 4 features structurelles (N, stylistic_load, $\log_{10}$ capacity, mean_marginal), atteint LOO-MAE = 0.469 sur 17 setups — utile comme prior, insuffisant comme oracle. Le coefficient le plus marqué (stylistic_load → +1.03) confirme empiriquement, sans codage en dur, le finding qualitatif de §13.4. La combinaison **C-as-prior + A-en-grille-fine-locale** donne un workflow réaliste (~40 % d'économie vs sweep aveugle, fiabilité conservée).
 
+- Le sweep **μ-schedule par-step** (§14.6, 6 configs sur Qwen3 fpc) montre qu'un μ varié le long de la trajectoire de denoising **ne bat jamais** la meilleure constante : toutes les schedules démarrant à μ = −2 reproduisent le ratio canonical (0.15) et toutes les configurations démarrant à μ = −1 reproduisent l'optimum Phase 11 (0.61), indépendamment du μ tardif. La phase early du denoising fixe entièrement le résultat. C'est le miroir du finding Phase 7b sur λ : sous PoE-N en MDLM, **un seul scalaire global suffit** pour calibrer μ — il n'y a rien à gagner à le faire varier.
+
 Le papier prend ainsi sa forme finale : une **caractérisation empirique disciplinée** d'où PoE-on-MDLM marche et où il ne marche pas, accompagnée d'un finding empirique non-trivial — le **sign-flip de la corrélation leakage ↔ déficit** entre régimes d'experts. Cette observation, combinée aux ~30 calibrations testées sur N=3 et à l'échec de la correction MCMC simple, motive une nouvelle classe d'approches **régime-conscientes** (prédicteurs) ou **score-based explicites** (correcteurs algorithmiques) au-delà du sum-of-logits par-step.
 
 ### Travaux futurs
@@ -954,7 +971,6 @@ Le papier prend ainsi sa forme finale : une **caractérisation empirique discipl
 
 3. **Améliorer le predictor C** : tester features non-linéaires (interactions stylistic_load × N, capacité), modèles k-NN ou Gaussian Process. Cible MAE ≤ 0.25 sur ≥ 30 setups, qui suffirait à remplacer A entièrement.
 
-3b. **Conduire le sweep μ-schedule** (infrastructure §14.6). 6 configs × ~6 min pod sur le triplet difficile Qwen3 fpc. Si une schedule (le candidat naturel est `late_fire`) bat le constant μ=−1 actuel à 0.61, on tient une amélioration algorithmique gratuite par-dessus Phase 11.
 
 4. **Explorer la composition cross-axe entangled** : peut-on adapter le sampling pour découpler globaux vs locaux (style vs lexique) ?
 
@@ -986,6 +1002,7 @@ Le papier prend ainsi sa forme finale : une **caractérisation empirique discipl
 | Phase 10 | Joint MCMC corrector à la Du Yan (block-Gibbs + MH) | Pod, ~45 min |
 | Phase 11 | Découplage du coefficient μ — sweep initial + 6 vérifications | Pod, ~3 h |
 | Phase 12 | Auto-tune A/B à $n=200$ + 10 sweeps N=2 pour predictor C | Pod, ~6 h |
+| Phase 12d | μ-schedule par-step (6 configs sur Qwen3 fpc) | Pod, ~30 min |
 
 ### B. Fichiers de résultats
 
@@ -1002,6 +1019,7 @@ Tous les résultats numériques sont consolidés dans `~/Documents/composable-dl
 - `mu_extra/*.json` (×10) : Phase 12c additional N=2 μ-sweeps (training set predictor)
 - `auto_tune_n200/*.json` (×3) : Phase 12 protocoles A et B à $n=200$
 - `predict_mu.json` : Phase 12c regression LOO sur 17 setups
+- `mu_schedule_qwen3_fpc.json` : Phase 12d μ-schedule sweep (6 configs)
 
 Plots associés dans `plots/` (MDLM-OWT) et `plots_qwen3/` (Phase 5 refit).
 

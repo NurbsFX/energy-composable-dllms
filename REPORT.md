@@ -1142,3 +1142,28 @@ Aucun protocole seul ne remplace un sweep manuel. Workflow réaliste :
 
 **Outputs** : `auto_tune_n200/{qwen3_fpc,qwen3_pcs,mdlm_fpc}.json`,
 `mu_extra/n2_*.json` (×10), `predict_mu.json`.
+
+### Phase 12d — μ-schedule per-step (2026-05-03)
+
+Test if μ optimal varies along the denoising trajectory. Code:
+`PoEConfig.mu_schedule + mu_base_end` interpolating
+`μ_eff(p) = μ_start + (μ_end − μ_start) · σ(p)`. Sweep on Qwen3 fpc, 6 configs:
+
+| Config | μ early | μ late | ratio |
+|---|---:|---:|---:|
+| constant μ=−2 | −2 | −2 | 0.15 |
+| constant μ=−1 | −1 | −1 | **0.61** ⭐ |
+| linear (−2→−1) | −2 | −1 | 0.15 |
+| cosine (−2→−1) | −2 | −1 | 0.15 |
+| late_fire (−2→−1 step at p=0.5) | −2 | −1 | 0.15 |
+| **early_fire (−1→−2 step at p=0.5)** | **−1** | **−2** | **0.61** ⭐ |
+
+**Crisp negative finding**: schedules don't beat the best constant. The
+*early* μ entirely determines the outcome — late switches arrive too late.
+Symmetric to the Phase 7b finding on λ-schedules.
+
+**Implication**: μ is a single global scalar, not a function of step. The
+trajectory is essentially "locked in" by the early phase under PoE-N.
+
+**Output**: `artifacts/mu_schedule_qwen3_fpc.json`,
+plot `artifacts/plots/mu_schedule_bar.png`.

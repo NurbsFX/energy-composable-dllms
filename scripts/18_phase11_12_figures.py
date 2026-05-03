@@ -1,11 +1,13 @@
 """Phase 11/12 final figures.
 
-Generates three artefacts in ``artifacts/plots/``:
+Generates four artefacts in ``artifacts/plots/``:
 
 * ``mu_sweep_curves.png`` — ratio vs μ for each available sweep, on one panel
   per setup (bell-shape diagnostic).
 * ``predictor_loo_scatter.png`` — predicted vs ground-truth μ\\* on the 17
   setups of Phase 12c, with y=x guide and per-point residuals.
+* ``mu_schedule_bar.png`` — Phase 12d bar chart comparing 2 constant-μ
+  controls and 4 schedule shapes on Qwen3 fpc.
 * ``phase11_gains_table.md`` — concise markdown table summarizing best μ,
   best ratio, canonical ratio, and gain (%) for each setup.
 
@@ -14,6 +16,7 @@ Inputs (read from ``artifact_root``):
 * ``n3_mu_sweep.json`` — the initial Phase 11 sweep.
 * ``predict_mu.json`` — predictor LOO output (in repo's ``artifacts/`` by
   default; we read from there).
+* ``artifacts/mu_schedule_qwen3_fpc.json`` — Phase 12d schedule sweep.
 
 No model forward needed; pure plot from existing JSONs.
 """
@@ -287,10 +290,75 @@ def write_gains_table(records: list[dict], out_path: Path) -> None:
     typer.echo(f"  wrote {out_path}")
 
 
+def plot_mu_schedule_bar(schedule_json: Path, out_path: Path) -> None:
+    """Phase 12d: bar chart of 6 conditions on Qwen3 fpc."""
+    if not schedule_json.exists():
+        typer.echo(f"Missing {schedule_json}; skipping schedule bar.", err=True)
+        return
+    data = json.loads(schedule_json.read_text())
+    triplet = "×".join(data["triplet"])
+    bb = "Qwen3" if "Qwen3" in data["backbone"] else "MDLM"
+
+    # Order: control μ_start, control μ_end, then schedules
+    order = [
+        ("constant μ=−2  (canonical)", "#888888"),
+        ("constant μ=−1  (Phase 11 best)", "#2ca02c"),
+        ("linear  (−2 → −1)", "#1f77b4"),
+        ("cosine  (−2 → −1)", "#1f77b4"),
+        ("late_fire  (−2 → −1)", "#1f77b4"),
+        ("early_fire  (−1 → −2)", "#ff7f0e"),
+    ]
+    keys = [
+        "constant_mu_start_-2",
+        "constant_mu_end_-1",
+        "sched_linear",
+        "sched_cosine",
+        "sched_late_fire",
+        "sched_early_fire",
+    ]
+    results = data["results"]
+    ratios = [results[k]["ratio"] for k in keys]
+    labels = [o[0] for o in order]
+    colors = [o[1] for o in order]
+
+    fig, ax = plt.subplots(figsize=(8.6, 4.6))
+    bars = ax.bar(range(len(labels)), ratios, color=colors, edgecolor="black", linewidth=0.6)
+    ax.axhline(1.0, color="grey", ls=":", lw=0.9, alpha=0.6, label="ratio = 1")
+
+    for bar, r in zip(bars, ratios, strict=True):
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() + 0.015,
+            f"{r:.2f}",
+            ha="center",
+            va="bottom",
+            fontsize=9,
+        )
+
+    ax.set_xticks(range(len(labels)))
+    ax.set_xticklabels(labels, rotation=18, ha="right", fontsize=8.5)
+    ax.set_ylabel("triple-sat ratio")
+    ax.set_ylim(0, max(ratios) * 1.25)
+    ax.set_title(
+        f"Phase 12d — μ-schedule per-step on {triplet}  ({bb}, n=200)\n"
+        "Early-step μ determines the outcome; late switch has no effect.",
+        fontsize=10.5,
+    )
+    ax.grid(True, axis="y", alpha=0.25)
+    ax.legend(fontsize=8, loc="upper right")
+
+    fig.tight_layout()
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out_path, dpi=140, bbox_inches="tight")
+    plt.close(fig)
+    typer.echo(f"  wrote {out_path}")
+
+
 @app.command()
 def main(
     artifact_root: Path = Path.home() / "Documents/composable-dllms-artifacts",
     predict_mu_json: Path = Path("artifacts/predict_mu.json"),
+    schedule_json: Path = Path("artifacts/mu_schedule_qwen3_fpc.json"),
     out_dir: Path = Path("artifacts/plots"),
 ) -> None:
     typer.echo(f"Loading μ-sweep records from {artifact_root}...")
@@ -302,6 +370,9 @@ def main(
 
     typer.echo("Generating predictor_loo_scatter.png ...")
     plot_predictor_loo_scatter(predict_mu_json, out_dir / "predictor_loo_scatter.png")
+
+    typer.echo("Generating mu_schedule_bar.png ...")
+    plot_mu_schedule_bar(schedule_json, out_dir / "mu_schedule_bar.png")
 
     typer.echo("Writing phase11_gains_table.md ...")
     write_gains_table(records, out_dir / "phase11_gains_table.md")

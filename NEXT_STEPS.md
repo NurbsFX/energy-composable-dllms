@@ -21,6 +21,7 @@ anglais ?), choix de venue, soumission.
 5. Joint MCMC (block-Gibbs + MH rigoureux) ne lève pas le plateau ; les samples PoE-3 naïfs sont déjà aux modes.
 6. **Découplage du coefficient μ sur log p_base** rescue les compositions stylistiques : +103 % à +307 % sur le ratio (Phase 11, 17 setups).
 7. **Auto-tuning de μ** (Phase 12) : grille à n=200 fiable mais coûteuse, BO instable, predictor structurel à MAE 0.469 (utile comme prior).
+8. **μ-schedule par-step** (Phase 12d, 2026-05-03) : schedules ne battent pas constant ; la phase early du denoising fixe le résultat. Un seul scalaire global suffit.
 
 ---
 
@@ -184,6 +185,7 @@ PAPER_DRAFT.md a déjà une structure complète. À ajouter/modifier :
 - [x] Tester `mh_token_swap` rigoureux — fait, n=50, ratio 0.23 → 0.23 (réfute l'hypothèse Test 2)
 - [x] **Phase 11** — découplage du coefficient μ : sweep initial + 6 vérifications (4 N=3 + 2 N=2 sur 2 backbones)
 - [x] **Phase 12** — auto-tuning de μ : protocoles A (grille n=200, 3/3), B (Bayesian opt, instable), C (predictor structurel, LOO-MAE 0.469 sur 17 setups)
+- [x] **Phase 12d** — μ-schedule per-step : 6 configs sur Qwen3 fpc, schedules ne battent pas constant (early μ fixe le résultat)
 - [x] **Décision finale** : papier passe de "diagnostique" à "diagnostique + algorithmique avec étude de calibrage". Étude empirique close.
 - [ ] Choisir venue cible (workshop vs Findings vs main conf)
 - [ ] Décider du langage final (français → anglais ?)
@@ -200,6 +202,7 @@ PAPER_DRAFT.md a déjà une structure complète. À ajouter/modifier :
 | Phase 12a | Auto-tune A (grid n=50) + B (BO n=50) | 1/3 et 0–1/3 succès — n=50 trop bruité |
 | Phase 12b | Auto-tune A et B à n=200 | A : 3/3 (fiable mais coûteux). B : 1/3 strict (instable). |
 | Phase 12c | Predictor C, training set 17 setups | LOO-MAE 0.469. Coef stylistic_load = +1.03 (confirme §13.4 sans codage en dur). |
+| Phase 12d | μ-schedule per-step (6 configs sur Qwen3 fpc) | **Schedules ne battent pas constant** — μ early fixe le résultat (0.15 ou 0.61 selon μ_start, indépendant de μ_end). |
 
 → Le papier porte désormais **une contribution algorithmique** (μ-fix) **avec une étude de portée pratique** (3 protocoles d'auto-tuning, workflow réaliste C-as-prior + A-en-grille-fine).
 
