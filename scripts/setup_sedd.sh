@@ -96,5 +96,18 @@ if old_call in src:
     print("Patched flash_attn call site to SDPA fallback.")
 
 trf.write_text(src)
+
+# 3. Disable @torch.jit.script decorators in fused_add_dropout_scale.py and
+#    rotary.py — they crash on torch 2.11 (vector range check) even though
+#    they worked under torch 2.4. Eager Python execution is fast enough for
+#    our scale and is bit-identical.
+for fname in ("model/fused_add_dropout_scale.py", "model/rotary.py"):
+    p = sedd / fname
+    s = p.read_text()
+    if "@torch.jit.script" in s:
+        s = s.replace("@torch.jit.script\n", "")
+        p.write_text(s)
+        print(f"Stripped @torch.jit.script in {fname}.")
+
 print("SEDD layout OK at", sedd)
 EOF
