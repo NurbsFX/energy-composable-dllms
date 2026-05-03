@@ -1,0 +1,141 @@
+{
+  "MDLM-OWT 110M": {
+    "n_pairs": 10,
+    "rows": [
+      {
+        "a": "formal",
+        "b": "positive",
+        "cos": 0.7010800838470459,
+        "ratio": 1.92
+      },
+      {
+        "a": "formal",
+        "b": "positive2",
+        "cos": 0.3424169719219208,
+        "ratio": 2.0
+      },
+      {
+        "a": "formal",
+        "b": "concrete",
+        "cos": 0.4291892945766449,
+        "ratio": 1.04
+      },
+      {
+        "a": "formal",
+        "b": "sports",
+        "cos": 0.6225666403770447,
+        "ratio": 1.44
+      },
+      {
+        "a": "positive",
+        "b": "positive2",
+        "cos": 0.3722028136253357,
+        "ratio": 4.32
+      },
+      {
+        "a": "positive",
+        "b": "concrete",
+        "cos": 0.45685866475105286,
+        "ratio": 1.12
+      },
+      {
+        "a": "positive",
+        "b": "sports",
+        "cos": 0.6809362173080444,
+        "ratio": 2.56
+      },
+      {
+        "a": "positive2",
+        "b": "concrete",
+        "cos": 0.4168248772621155,
+        "ratio": 1.28
+      },
+      {
+        "a": "positive2",
+        "b": "sports",
+        "cos": 0.31711751222610474,
+        "ratio": 1.68
+      },
+      {
+        "a": "concrete",
+        "b": "sports",
+        "cos": 0.4296712577342987,
+        "ratio": 1.2
+      }
+    ],
+    "pearson_r": -0.026198138667372486,
+    "pearson_p": 0.9409109483587653
+  },
+  "MDLM Qwen3 596M": {
+    "n_pairs": 10,
+    "rows": [
+      {
+        "a": "formal",
+        "b": "positive",
+        "cos": 0.35901668667793274,
+        "ratio": 0.88
+      },
+      {
+        "a": "formal",
+        "b": "positive2",
+        "cos": 0.3226209282875061,
+        "ratio": 1.12
+      },
+      {
+        "a": "formal",
+        "b": "concrete",
+        "cos": 0.28441500663757324,
+        "ratio": 1.84
+      },
+      {
+        "a": "formal",
+        "b": "sports",
+        "cos": 0.31404513120651245,
+        "ratio": 1.28
+      },
+      {
+        "a": "positive",
+        "b": "positive2",
+        "cos": 0.3641337454319,
+        "ratio": 2.88
+      },
+      {
+        "a": "positive",
+        "b": "concrete",
+        "cos": 0.30908164381980896,
+        "ratio": 2.0
+      },
+      {
+        "a": "positive",
+        "b": "sports",
+        "cos": 0.34995684027671814,
+        "ratio": 1.6
+      },
+      {
+        "a": "positive2",
+        "b": "concrete",
+        "cos": 0.3065045475959778,
+        "ratio": 1.2
+      },
+      {
+        "a": "positive2",
+        "b": "sports",
+        "cos": 0.3150344789028168,
+        "ratio": 1.12
+      },
+      {
+        "a": "concrete",
+        "b": "sports",
+        "cos": 0.28485390543937683,
+        "ratio": 2.56
+      }
+    ],
+    "pearson_r": -0.060507486148246054,
+    "pearson_p": 0.8638658815625736
+  },
+  "pooled": {
+    "n_pairs": 20,
+    "pearson_r": 0.059972731118672976,
+    "pearson_p": 0.7987991252066552
+  }
+}

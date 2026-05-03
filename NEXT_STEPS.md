@@ -186,8 +186,74 @@ PAPER_DRAFT.md a déjà une structure complète. À ajouter/modifier :
 - [x] **Phase 11** — découplage du coefficient μ : sweep initial + 6 vérifications (4 N=3 + 2 N=2 sur 2 backbones)
 - [x] **Phase 12** — auto-tuning de μ : protocoles A (grille n=200, 3/3), B (Bayesian opt, instable), C (predictor structurel, LOO-MAE 0.469 sur 17 setups)
 - [x] **Phase 12d** — μ-schedule per-step : 6 configs sur Qwen3 fpc, schedules ne battent pas constant (early μ fixe le résultat)
-- [x] **Décision finale** : papier passe de "diagnostique" à "diagnostique + algorithmique avec étude de calibrage". Étude empirique close.
-- [ ] Choisir venue cible (workshop vs Findings vs main conf)
+- [x] **Décision finale Paper 1** : papier passe de "diagnostique" à "diagnostique + algorithmique avec étude de calibrage". Étude empirique close.
+
+## Pendings pour Paper 1 — pod-gated
+
+### A2 OK — conversion AR→MDLM est reproductible verbatim sur Qwen3-1.7B
+
+Vérifié le 2026-05-03 : le script `external/dllm/dllm/pipelines/a2d/convert.py` est
+**size-agnostic** :
+- Le mapping `A2D_CONFIG_MAP["qwen3"]` couvre toutes les variantes Qwen3-* (model_type=`qwen3`)
+- La config A2D est construite à partir de `src_config.to_dict()` — pas d'hyperparamètre size-dependent
+- Le state_dict est chargé `strict=False` — la conversion préserve l'arch en ajoutant des composants spécifiques A2D (modules MDLM)
+
+Le script de pretraining `external/dllm/examples/a2d/mdlm/pt.py` est aussi
+size-agnostic :
+- lr=1e-4, num_epochs=20, batch_size=16 — non size-dependent
+- Modèle chargé via `dllm.utils.get_model(model_args)` — auto-arch
+- Trainer = `MDLMTrainer` HF générique
+
+**Seul ajustement attendu sur Qwen3-1.7B** : la taille mémoire. 1.7B vs 0.6B = ~3×
+plus gros. Sur A100 80GB, prévoir `per_device_train_batch_size=8` ou
+gradient_accumulation_steps=2 pour rester dans le budget mémoire.
+
+Source : `Qwen/Qwen3-1.7B` est disponible sur HF Hub.
+
+| Phase | Action | Coût pod | Pré-requis |
+|---|---|---:|---|
+| B0 | Conversion AR→MDLM Qwen3-1.7B | $30-50 | A2 OK ✓ |
+| B1 | 6 LoRA experts sur Qwen3-1.7B-MDLM | $15-20 | B0 |
+| B2 | PoE-2 sweep Qwen3-1.7B (10 paires) | $5-8 | B1 |
+| B3 | PoE-3 Qwen3-1.7B (3 triplets) | $3-5 | B1 |
+| B4 | μ-sweep Qwen3-1.7B sur fpc | $5-8 | B1 |
+| C2 | μ-sweep complémentaire triplet lexical | $3-5 | éventuellement |
+| **Total Phase B/C pod** | | **~$60-100** | |
+
+**Décision pré-pod** : valider A1 (venue + deadline) et A2 (reproducibility conversion) localement avant tout pod re-up.
+
+## Pendings pour Paper 2 (SEDD) — pod-gated
+
+| Test | Discriminateur | Coût pod |
+|---|---|---:|
+| (a) μ-sweep sur triplet homogène `positive × concrete × sports` | Disambigue §10.6 : paradigm-level vs selectivity-driven | ~$5 |
+| (b) μ-sweep sur autre style anchor `long × positive × concrete` | Robustness sur style non-formal | ~$5 |
+| (optionnel) Re-train formal SEDD seul +5000 steps | Tests si formal-faible est undertraining | ~$1 |
+| (optionnel) Prompted SEDD repeat | Cleane le caveat unconditional | ~$5 |
+
+§10.8/(c) **DONE local** : ratio = 0.79 + 1.26·C, Pearson r = +0.74 sur 15 paires (commit `c3a870c`). Le finding load-bearing du Paper 2 est verrouillé sans pod ; (a)+(b) sont des tests de robustesse complémentaires.
+
+## Pendings nécessitant intervention humaine
+
+- **B6** : évaluation humaine légère. 30-50 samples × 4 conditions × 2-3 labellers, accord avec proxy energies (target > 70%). Préparation du form-template fait localement, mais le labeling lui-même ne peut être fait sans humains.
+- [ ] **A1** Choisir venue cible (workshop vs Findings vs main conf) — voir tableau ci-dessous.
+
+#### Options de venue pour Paper 1 (à confirmer par l'utilisateur)
+
+> **Caveat** : ces dates sont des estimations basées sur les patterns récents (cycles ARR/EMNLP/ACL/NAACL). À vérifier sur les sites officiels avant de commiter sur l'une.
+
+| Venue | Cycle typique | Fit pour Paper 1 | Notes |
+|---|---|---|---|
+| **NeurIPS Workshop (ML for compositional generation, diffusion track)** | Submission ~août, accept ~sept-oct | Excellent pour étude empirique compositionnelle, audience natural | Court (4-6 pages), pas archival, faible risque |
+| **ICLR Workshop** | Submission ~fév-mars, accept ~mars-avr | Idem | Permet d'écrire à l'aise sans pression de la main conf |
+| **EMNLP Findings 2026** | Submission via ARR (rolling) ; commit ~août 2026 | Très bon — audience NLP, valorise les findings empiriques disciplinés | Archival, full paper (long ou short) |
+| **ACL Findings 2026** | Idem ARR, commit ~déc 2025 ou plus tard | Idem | Plus prestigieux que EMNLP Findings |
+| **NAACL 2027** | Submission ARR ~oct 2026, commit ~jan 2027 | Idem | Bonne fenêtre si extension Qwen3-1.7B prête |
+| **ACL 2027 main** | Submission ~jan-fév 2027 | Si Phase B (Qwen3-1.7B) confirme cross-scale | Plus exigeant : nécessite Paper 1 + extensions Phase B/C |
+
+**Recommandation** : si Phase B (Qwen3-1.7B) ne sera pas faite, viser **Findings of EMNLP/ACL 2026** avec le scope actuel (2 backbones + Phase 11 μ-fix + Phase 12 auto-tune). Si Phase B est faite, viser **NAACL 2027 ou ACL 2027 main**.
+
+→ **Action utilisateur** : décider parmi ces options et fixer la deadline. Toutes les autres décisions (Phase B oui/non, traduction anglaise, longueur du papier) en découlent.
 - [ ] Décider du langage final (français → anglais ?)
 - [ ] Identifier les 1-2 figures-clés à polir pour la soumission (μ-sweep curves, predictor LOO scatter)
 
