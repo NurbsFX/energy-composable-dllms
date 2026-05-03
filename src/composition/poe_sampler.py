@@ -47,6 +47,17 @@ class PoEConfig:
     # which lets us decouple how strongly OWT-typical text is penalised
     # from how strongly experts push.
     mu_base: float | None = None
+    # Step-aware schedule on mu_base (Phase 12d). When both ``mu_schedule``
+    # and ``mu_base_end`` are set, ``mu_base`` plays the role of ``mu_start``
+    # and the effective μ at progress ``p ∈ [0,1]`` along the denoising
+    # trajectory is interpolated according to the named shape:
+    #   linear  : μ(p) = mu_start + (mu_end − mu_start) · p
+    #   cosine  : μ(p) = mu_start + (mu_end − mu_start) · 0.5(1 − cos(π p))
+    #   late    : μ(p) = mu_start if p < 0.5 else mu_end (step at midpoint)
+    #   early   : μ(p) = mu_end   if p < 0.5 else mu_start (step at midpoint)
+    # ``None`` ≡ constant μ_base (Phase 11 behaviour).
+    mu_schedule: str | None = None
+    mu_base_end: float | None = None
 
 
 class PoECompositionModel:
@@ -72,6 +83,8 @@ class PoECompositionModel:
         lambda_schedule_fn=None,
         total_steps: int = 256,
         mu_base: float | None = None,
+        mu_schedule_fn=None,
+        mu_base_end: float | None = None,
     ):
         self.base = base_with_adapters
         self.lambdas = {k: float(v) for k, v in lambdas.items()}
@@ -87,6 +100,11 @@ class PoECompositionModel:
         # (so e.g. mu_base = 0 yields a pure sum-of-experts; mu_base = -1 a
         # half-strength PoE penalty at N=3 instead of the canonical -2).
         self.mu_base = mu_base
+        # Optional per-step μ schedule (Phase 12d). When both fn and end are
+        # set, μ_eff(p) = mu_base + (mu_base_end − mu_base) · mu_schedule_fn(p).
+        # mu_schedule_fn maps progress ∈ [0,1] → mixing weight in [0,1].
+        self.mu_schedule_fn = mu_schedule_fn
+        self.mu_base_end = mu_base_end
         # Used by some HF utilities.
         self.device = next(base_with_adapters.parameters()).device
 
@@ -100,19 +118,32 @@ class PoECompositionModel:
         import torch
         from transformers.modeling_outputs import MaskedLMOutput
 
+        progress = self.step_count / max(1, self.total_steps - 1)
         if self.lambda_schedule_fn is not None:
-            progress = self.step_count / max(1, self.total_steps - 1)
             scale = float(self.lambda_schedule_fn(progress))
             effective = {k: v * scale for k, v in self.lambdas.items()}
         else:
             effective = self.lambdas
         self.step_count += 1
 
+        # Resolve effective μ for this step. mu_eff = mu_base when no schedule.
+        # When a schedule + endpoint are set, interpolate between mu_base
+        # (start) and mu_base_end via mu_schedule_fn(progress) ∈ [0,1].
+        if (
+            self.mu_base is not None
+            and self.mu_schedule_fn is not None
+            and self.mu_base_end is not None
+        ):
+            w = float(self.mu_schedule_fn(progress))
+            mu_eff = float(self.mu_base) + (float(self.mu_base_end) - float(self.mu_base)) * w
+        else:
+            mu_eff = self.mu_base
+
         with torch.no_grad():
             with self.base.disable_adapter():
                 logits_base = self.base(input_ids=input_ids, attention_mask=attention_mask).logits
 
-            if self.mu_base is None:
+            if mu_eff is None:
                 # Standard PoE form: logits_PoE = logits_base + Σ λ_i (logits_i − logits_base)
                 logits_delta = torch.zeros_like(logits_base)
                 for name, lam in effective.items():
@@ -123,8 +154,8 @@ class PoECompositionModel:
                     logits_delta = logits_delta + lam * (logits_i - logits_base)
                 composed = logits_base + logits_delta
             else:
-                # Decoupled mixture-PoE: logits_custom = mu_base · logits_base + Σ λ_i · logits_i
-                composed = float(self.mu_base) * logits_base
+                # Decoupled mixture-PoE: logits_custom = mu_eff · logits_base + Σ λ_i · logits_i
+                composed = float(mu_eff) * logits_base
                 for name, lam in effective.items():
                     if lam == 0.0:
                         continue
@@ -204,12 +235,15 @@ class PoESampler:
 
         scheduler = self.scheduler or LinearAlphaScheduler()
         sched_fn = SCHEDULES[self.cfg.lambda_schedule] if self.cfg.lambda_schedule else None
+        mu_sched_fn = SCHEDULES[self.cfg.mu_schedule] if self.cfg.mu_schedule else None
         wrapped = PoECompositionModel(
             self.base,
             lambdas,
             lambda_schedule_fn=sched_fn,
             total_steps=self.cfg.num_steps,
             mu_base=self.cfg.mu_base,
+            mu_schedule_fn=mu_sched_fn,
+            mu_base_end=self.cfg.mu_base_end,
         )
         self._wrapped_model = wrapped  # held so we can reset_step_count between attempts
         return MDLMSampler(model=wrapped, tokenizer=self.tokenizer, scheduler=scheduler)

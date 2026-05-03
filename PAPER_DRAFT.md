@@ -912,6 +912,20 @@ C'est l'étape honnête entre "il faut sweeper aveuglément à chaque triplet" e
 
 Phase 12 verrouille la **portée pratique** de la contribution Phase 11 : un μ-fix est le bon levier, le coût d'auto-calibration est non-trivial mais maîtrisable, et un predictor structurel léger peut servir de prior. La direction des coefficients structurels (signe positif sur `stylistic_load`) confirme empiriquement le finding qualitatif de §13.4.1.
 
+### 14.5 Figures finales
+
+Trois artefacts résument visuellement les Phases 11 et 12 (`artifacts/plots/`) :
+
+* **`mu_sweep_curves.png`** — pour chaque setup, une courbe ratio vs μ avec marquage du canonical (anneau rouge) et du best (étoile verte). Le pattern en cloche ressort clairement sur les setups stylistiques ; les setups lexicaux montrent un plateau ou une décroissance monotone.
+* **`predictor_loo_scatter.png`** — predicted vs ground-truth μ\* sur les 17 setups, avec ligne y = x et résidus. Le predictor compresse vers la médiane (attendu pour une régression linéaire sur n=17), mais sépare correctement les régimes Qwen3 vs MDLM-OWT et N=2 vs N=3.
+* **`phase11_gains_table.md`** — tableau récapitulatif des 16 sweeps unique (par couple triplet × backbone), avec canonical ratio, best μ, best ratio et gain.
+
+### 14.6 μ-schedule par-step (infrastructure prête, sweep à conduire)
+
+Le μ optimal pourrait varier le long de la trajectoire de denoising — analogue à l'option β de Phase 7b sur λ. Le code (`src/composition/poe_sampler.py::PoEConfig.mu_schedule + mu_base_end`) interpole `μ_eff(p) = μ_start + (μ_end − μ_start) · σ(p)` où σ est l'une des shapes existantes (`linear`, `cosine`, `late_fire`, `early_fire`). Hypothèse : `late_fire` (canonical $1-N$ tôt, μ relâché tard) devrait dominer si le besoin de pénalisation OWT s'atténue à mesure que la séquence se clarifie.
+
+Sweep conçu (`scripts/17_mu_schedule_sweep.py`, ~6 min pod par setup) : 2 contrôles à μ constant + 4 schedules sur Qwen3 formal × positive × concrete. Reste à exécuter quand un pod est de nouveau disponible. Le baseline à battre est ratio = 0.61 (μ ≡ −1 constant).
+
 ---
 
 ## 15. Conclusion
@@ -939,6 +953,8 @@ Le papier prend ainsi sa forme finale : une **caractérisation empirique discipl
 2. **Formaliser un prédicteur régime-conscient** : par exemple `sign(B - 0.25) × |B - 0.25|^β`, où β dépend d'une mesure de force des experts (norm des shifts de logits, ou divergence entre marginal expert et baseline).
 
 3. **Améliorer le predictor C** : tester features non-linéaires (interactions stylistic_load × N, capacité), modèles k-NN ou Gaussian Process. Cible MAE ≤ 0.25 sur ≥ 30 setups, qui suffirait à remplacer A entièrement.
+
+3b. **Conduire le sweep μ-schedule** (infrastructure §14.6). 6 configs × ~6 min pod sur le triplet difficile Qwen3 fpc. Si une schedule (le candidat naturel est `late_fire`) bat le constant μ=−1 actuel à 0.61, on tient une amélioration algorithmique gratuite par-dessus Phase 11.
 
 4. **Explorer la composition cross-axe entangled** : peut-on adapter le sampling pour découpler globaux vs locaux (style vs lexique) ?
 
