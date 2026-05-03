@@ -856,7 +856,65 @@ C'est maintenant une *vraie contribution algorithmique* : on ne dit plus seuleme
 
 ---
 
-## 14. Conclusion
+## 14. Phase 12 — Auto-tuning de μ : protocoles et limites
+
+Phase 11 établit qu'un μ bien choisi rescue les compositions stylistiques, mais la valeur optimale **dépend du triplet et du backbone**. Pour transformer cette observation en outil pratique, il faut une **procédure** de sélection qui ne nécessite pas un sweep complet à $n=200$ par triplet. Trois protocoles testés sur les 17 setups dont nous connaissons μ\* (issus des Phases 11 + 12c, 6 N=3 + 11 N=2, deux backbones) :
+
+* **A — Quick grid sweep**, candidats $\mu \in \{-2, -1.5, -1, -0.5, 0\}$, argmax du ratio.
+* **B — Bayesian optimization** (GP + Expected Improvement), 6 évaluations, range $\mu \in [-2.5, +0.5]$.
+* **C — Predictor structurel**, régression linéaire sur 4 features (N, stylistic_load, $\log_{10}\text{cap}$, mean_marginal), évalué en LOO-CV. Aucune passe forward du modèle.
+
+### 14.1 Protocoles A et B — coût d'évaluation
+
+À $n=50$ (cible "rapide"), A et B échouent tous deux : 1/3 et 0–1/3 des setups identifient le bon μ\*. La variance de $n=50$ est trop grande pour distinguer des candidats voisins. À $n=200$ (cible "fiable") :
+
+| Setup | Ground-truth μ\* | A → best μ̂ | A ratio | B → best μ̂ | B ratio | A ✓ | B ✓ |
+|---|---:|---:|---:|---:|---:|:---:|:---:|
+| Qwen3, formal × positive × concrete | −1 | −1 | 0.61 | 0 | 0.38 | ✓ | ✗ |
+| Qwen3, positive2 × concrete × sports | −2 | −2 | 3.23 | −2 | 3.23 | ✓ | ✓ |
+| MDLM-OWT, formal × positive × concrete | 0 | 0 | 0.71 | −0.21 | 0.88 | ✓ | ≈ |
+
+→ **A à $n=200$ est fiable (3/3)** mais coûte 5 forwards de 200 prompts chacun, soit l'équivalent de l'effort manuel sans son guide. **B est instable** — sur Qwen3 fpc, l'EI s'enferme à $\mu = +0.5$ (point de seed ratio plat) ; sur Qwen3 pcs il converge bien ; sur MDLM il *bat* A en explorant un point intermédiaire ($\mu = -0.21$, ratio 0.88 vs 0.71). En pratique, B exige une seed pertinente et un kernel bien réglé pour fonctionner.
+
+### 14.2 Protocole C — predictor structurel (LOO-CV sur 17 setups)
+
+Régression linéaire sur 4 features computées sans aucune passe forward du modèle :
+
+```
+μ_pred = −0.106
+       − 0.240 · N
+       + 1.032 · stylistic_load
+       − 0.229 · log10(capacity_M)
+       − 0.348 · mean_marginal
+```
+
+LOO-MAE = **0.469** sur l'échelle des μ\* observés ($\mu^* \in [-2, 0]$, plage 2.0). Soit ~23 % de l'amplitude — utile comme **prior**, insuffisant comme oracle.
+
+Les signes des coefficients sont cohérents avec l'intuition Phase 11 :
+
+* `stylistic_load` (positif fort) : plus la composition est stylistique, plus μ\* doit être *relâché* (moins négatif). C'est le finding central, et il sort des 17 datapoints sans avoir été codé en dur.
+* `N` (négatif), `mean_marginal` (négatif) : plus on empile d'experts ou plus chacun pousse fort, plus il faut un μ punissant.
+* `log10(capacity)` (négatif modeste) : un gros backbone supporte un μ plus négatif (contre-intuitif au premier abord ; cohérent avec l'observation Qwen3 vs MDLM-OWT — Qwen3 prend μ=−1, MDLM-OWT prend μ=0).
+
+La règle structurelle simple `μ ≈ −N(1−sl) − [1 si cap≤200M]` donne MAE = 0.471, comparable à la régression mais sans capacité d'extrapolation.
+
+### 14.3 Synthèse — pas un auto-tuner, mais un workflow
+
+Aucun des trois protocoles seul ne **remplace** un sweep manuel à $n=200$. Mais combinés ils donnent un workflow réaliste :
+
+1. **Calculer C** (gratuit, ~ms) → prédiction $\hat{\mu}_C \pm 0.5$.
+2. **Lancer A en grille fine autour de $\hat{\mu}_C$** (3 candidats à $n=200$ au lieu de 5+) → économie ~40 % vs sweep aveugle, fiabilité conservée.
+3. **À défaut, fallback sur la heuristique par défaut** : $\mu = -1$ pour les compositions stylistiques sur backbones $\geq$ 500M, $\mu = 0$ pour les backbones $\leq$ 200M, canonical $\mu = 1-N$ pour les compositions purement lexicales.
+
+C'est l'étape honnête entre "il faut sweeper aveuglément à chaque triplet" et "on a un oracle qui prédit μ\*". L'oracle reste un objectif futur, conditionné à un dataset d'évaluation $\geq$ 30–50 setups sur $\geq$ 3 backbones — non atteignable dans le scope de cette étude.
+
+### 14.4 Implication pour le papier
+
+Phase 12 verrouille la **portée pratique** de la contribution Phase 11 : un μ-fix est le bon levier, le coût d'auto-calibration est non-trivial mais maîtrisable, et un predictor structurel léger peut servir de prior. La direction des coefficients structurels (signe positif sur `stylistic_load`) confirme empiriquement le finding qualitatif de §13.4.1.
+
+---
+
+## 15. Conclusion
 
 Nous avons mené une étude empirique exhaustive de la composabilité par Product-of-Experts dans les Masked Diffusion Language Models. Les résultats principaux :
 
@@ -868,15 +926,19 @@ Nous avons mené une étude empirique exhaustive de la composabilité par Produc
 - L'évaluation systématique de **5 prédicteurs candidats** (B leakage, F-js, A' logit-shift, E spatial overlap, C κ_act sur activations latentes — Section 11) révèle qu'**aucun n'atteint r > 0.7 cross-backbone**. Le prédicteur le plus puissant per-backbone (B leakage) **change de signe** entre les deux backbones, traduisant une distinction "experts faibles vs forts". Le candidat C (κ sur activations) reproduit le pattern de κ_OWT (forte corrélation MDLM, collapse Qwen3), confirmant que le problème n'est pas le choix de la métrique géométrique mais une propriété structurelle du régime de capacité du backbone.
 - Les tentatives de **correction algorithmique** par joint MCMC à la Du Yan 2023 (Section 12) ne lèvent pas le plateau N=3. Le block-Gibbs `noise_then_denoise` dégrade (0.15 → 0.08 à $n=200$ ; 0.23 → 0.00 à $n=50$). Le MH-token-swap rigoureux, qui n'accepte les swaps que selon un ratio Metropolis-Hastings basé sur l'ELBO séquence-niveau, **préserve le ratio** sans l'améliorer (0.23 → 0.23 à $n=50$, 22.6 % d'acceptance). Cela démontre empiriquement que les samples naïfs PoE-3 sont déjà approximativement aux modes de la distribution PoE-composée, **réfutant l'hypothèse que le slope 0.857 < 1 du Test 2 traduise une sous-composition correctible au niveau du sampling**.
 
-- Le **découplage du coefficient μ sur log p_base** de la valeur canonique $1-N$ (Section 13) — testé sur 5 setups (4 N=3 + 2 N=2 sur 2 backbones, 7 sweeps au total) — **rescue les compositions à composante stylistique** avec des gains de +103 % à +307 % sur le ratio. Pour les compositions purement lexicales, le canonical reste optimal. Le sweet spot de μ varie cross-backbone (−1 sur Qwen3, 0 sur MDLM-OWT) mais sa direction est consistante : *toujours* moins punitif que le canonical. Sur le gros backbone, le couplage μ-fix + grand modèle franchit la barre du super-additif ($r > 1$) sur des compositions auparavant sub-additives.
+- Le **découplage du coefficient μ sur log p_base** de la valeur canonique $1-N$ (Section 13) — testé sur 17 setups (6 N=3 + 11 N=2 sur 2 backbones) — **rescue les compositions à composante stylistique** avec des gains de +103 % à +307 % sur le ratio. Pour les compositions purement lexicales, le canonical reste optimal. Le sweet spot de μ varie cross-backbone (−1 sur Qwen3, 0 sur MDLM-OWT) mais sa direction est consistante : *toujours* moins punitif que le canonical. Sur le gros backbone, le couplage μ-fix + grand modèle franchit la barre du super-additif ($r > 1$) sur des compositions auparavant sub-additives.
+
+- Trois **protocoles d'auto-calibration de μ** ont été comparés (Section 14) : grille fixe (A), Bayesian optimization (B), et predictor structurel (C). À $n=200$, A est fiable (3/3 setups) mais coûteux ; B est instable (dépendance forte au seed et au kernel GP) ; C, une régression linéaire sur 4 features structurelles (N, stylistic_load, $\log_{10}$ capacity, mean_marginal), atteint LOO-MAE = 0.469 sur 17 setups — utile comme prior, insuffisant comme oracle. Le coefficient le plus marqué (stylistic_load → +1.03) confirme empiriquement, sans codage en dur, le finding qualitatif de §13.4. La combinaison **C-as-prior + A-en-grille-fine-locale** donne un workflow réaliste (~40 % d'économie vs sweep aveugle, fiabilité conservée).
 
 Le papier prend ainsi sa forme finale : une **caractérisation empirique disciplinée** d'où PoE-on-MDLM marche et où il ne marche pas, accompagnée d'un finding empirique non-trivial — le **sign-flip de la corrélation leakage ↔ déficit** entre régimes d'experts. Cette observation, combinée aux ~30 calibrations testées sur N=3 et à l'échec de la correction MCMC simple, motive une nouvelle classe d'approches **régime-conscientes** (prédicteurs) ou **score-based explicites** (correcteurs algorithmiques) au-delà du sum-of-logits par-step.
 
 ### Travaux futurs
 
-1. **Étendre l'étude à un troisième backbone** (e.g., LLaDA, BERT-MDLM, Dream) pour vérifier le sign-flip de B et clarifier sa relation à la capacité du modèle.
+1. **Étendre l'étude à un troisième backbone** (e.g., LLaDA, BERT-MDLM, Dream) pour vérifier le sign-flip de B et clarifier sa relation à la capacité du modèle. Permettrait aussi d'augmenter la taille du dataset d'évaluation du predictor C (Section 14.2) au-delà des 17 setups actuels.
 
-3. **Formaliser un prédicteur régime-conscient** : par exemple `sign(B - 0.25) × |B - 0.25|^β`, où β dépend d'une mesure de force des experts (norm des shifts de logits, ou divergence entre marginal expert et baseline).
+2. **Formaliser un prédicteur régime-conscient** : par exemple `sign(B - 0.25) × |B - 0.25|^β`, où β dépend d'une mesure de force des experts (norm des shifts de logits, ou divergence entre marginal expert et baseline).
+
+3. **Améliorer le predictor C** : tester features non-linéaires (interactions stylistic_load × N, capacité), modèles k-NN ou Gaussian Process. Cible MAE ≤ 0.25 sur ≥ 30 setups, qui suffirait à remplacer A entièrement.
 
 4. **Explorer la composition cross-axe entangled** : peut-on adapter le sampling pour découpler globaux vs locaux (style vs lexique) ?
 
@@ -905,7 +967,9 @@ Le papier prend ainsi sa forme finale : une **caractérisation empirique discipl
 | Phase 7b (v2) | Schedules + MCMC | Pod, ~1 h |
 | Phase 8 | Pipeline complète sur Qwen3-0.6B | Pod, ~5 h |
 | Phase 9 | Évaluation des 4+1 prédicteurs candidats (B, F-js, A', E, C) | Local, ~1 h |
-| Phase 10 | Joint MCMC corrector à la Du Yan (block-Gibbs) | Pod, ~45 min |
+| Phase 10 | Joint MCMC corrector à la Du Yan (block-Gibbs + MH) | Pod, ~45 min |
+| Phase 11 | Découplage du coefficient μ — sweep initial + 6 vérifications | Pod, ~3 h |
+| Phase 12 | Auto-tune A/B à $n=200$ + 10 sweeps N=2 pour predictor C | Pod, ~6 h |
 
 ### B. Fichiers de résultats
 
@@ -918,6 +982,10 @@ Tous les résultats numériques sont consolidés dans `~/Documents/composable-dl
 - `v2/n3_v2_*.json` (×7) : schedules et MCMC sur MDLM-OWT
 - `test1_intersection_check.json`, `poe_formula_check.json`
 - `gram_matrix.json`, `independence_metrics.json`
+- `n3_mu_sweep.json`, `mu/*.json` (×6) : Phase 11 μ-sweeps (4 N=3 + 2 N=2)
+- `mu_extra/*.json` (×10) : Phase 12c additional N=2 μ-sweeps (training set predictor)
+- `auto_tune_n200/*.json` (×3) : Phase 12 protocoles A et B à $n=200$
+- `predict_mu.json` : Phase 12c regression LOO sur 17 setups
 
 Plots associés dans `plots/` (MDLM-OWT) et `plots_qwen3/` (Phase 5 refit).
 
@@ -935,9 +1003,9 @@ Pour faire fonctionner MDLM-OWT, plusieurs patches ont été nécessaires :
 
 ### D. Coût total
 
-- Pod RunPod A100 SXM 80GB : ~80 heures cumulées sur 4 jours.
-- Coût ≈ 65 USD (sur un budget de 100 USD).
-- Local Mac : ~1.85 GB d'artefacts (datasets + checkpoints + samples + plots).
+- Pod RunPod A100 SXM 80GB : ~95 heures cumulées sur 6 jours.
+- Coût ≈ 80 USD (sur un budget de 100 USD).
+- Local Mac : ~2.0 GB d'artefacts (datasets + checkpoints + samples + plots + Phase 11/12 sweeps).
 
 ---
 

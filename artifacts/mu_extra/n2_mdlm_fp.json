@@ -1,0 +1,58 @@
+{
+  "triplet": [
+    "formal",
+    "positive"
+  ],
+  "backbone": "kuleshov-group/mdlm-owt",
+  "thresholds": {
+    "len": 60.0,
+    "form": 0.708581879734993,
+    "sent": 0.9950539469718933,
+    "sent2": 0.43681512027978897,
+    "conc": 2.9126323529411766,
+    "topic": 0.4481283202767372
+  },
+  "marginals": {
+    "formal": 0.3,
+    "positive": 0.3
+  },
+  "indep_ref": 0.09,
+  "config": {
+    "n_samples": 200,
+    "max_new_tokens": 48,
+    "num_steps": 256,
+    "mu_values": [
+      -1.5,
+      -1.0,
+      -0.5,
+      0.0
+    ]
+  },
+  "sweep_results": {
+    "standard_-1": {
+      "mu": -1.0,
+      "triple_sat": 0.12,
+      "ratio": 1.3333333333333333
+    },
+    "mu_-1.50": {
+      "mu": -1.5,
+      "triple_sat": 0.065,
+      "ratio": 0.7222222222222223
+    },
+    "mu_-1.00": {
+      "mu": -1.0,
+      "triple_sat": 0.12,
+      "ratio": 1.3333333333333333
+    },
+    "mu_-0.50": {
+      "mu": -0.5,
+      "triple_sat": 0.14,
+      "ratio": 1.5555555555555558
+    },
+    "mu_+0.00": {
+      "mu": 0.0,
+      "triple_sat": 0.045,
+      "ratio": 0.5
+    }
+  }
+}

@@ -1,11 +1,26 @@
 # Next steps — Plan de match du papier
 
 > Document de pilotage stratégique. Mis à jour au fil de l'eau.
-> Dernière mise à jour : 2026-04-29.
+> Dernière mise à jour : 2026-05-02.
 
-## TL;DR
+## État actuel — étude empirique close
 
-Le scope cible du papier est **N=2-3 avec un prédicteur stable du déficit PoE**. La prochaine étape critique est de **tester localement** quatre prédicteurs candidats sur les artefacts existants pour identifier celui qui généralise cross-backbone. Coût : ~1h de Python local, zéro compute pod.
+L'étude expérimentale est **terminée**. Le papier porte désormais une vraie
+contribution algorithmique (μ-fix Phase 11) accompagnée d'une étude honnête de
+sa portée pratique (auto-tune Phase 12). Voir PAPER_DRAFT.md §13–§14.
+
+**Reste à faire** : finalisation rédactionnelle (figures, traduction
+anglais ?), choix de venue, soumission.
+
+## TL;DR — narratif final du papier
+
+1. PoE-MDLM marche bien à N=2 (super-additif moyen sur 2 backbones).
+2. À N=3, plateau robuste contre 19 calibrations sur le petit backbone ; gros backbone le lève partiellement.
+3. La géométrie OWT (κ, CKA, MI) prédit le déficit sur le petit backbone (r=−0.92) mais collapse sur le gros (r=−0.24).
+4. 5 prédicteurs candidats (B, F-js, A', E, C) testés cross-backbone — tous échouent à r > 0.7. Sign-flip de B entre régimes d'experts.
+5. Joint MCMC (block-Gibbs + MH rigoureux) ne lève pas le plateau ; les samples PoE-3 naïfs sont déjà aux modes.
+6. **Découplage du coefficient μ sur log p_base** rescue les compositions stylistiques : +103 % à +307 % sur le ratio (Phase 11, 17 setups).
+7. **Auto-tuning de μ** (Phase 12) : grille à n=200 fiable mais coûteuse, BO instable, predictor structurel à MAE 0.469 (utile comme prior).
 
 ---
 
@@ -151,14 +166,13 @@ PAPER_DRAFT.md a déjà une structure complète. À ajouter/modifier :
 
 ## Suivi des budgets
 
-- Pod RunPod restant : ~85 USD non dépensés (sur budget initial 100 USD)
-- Pod temps cumulé : ~80h
+- Pod RunPod : ~80 USD dépensés sur 100 USD initial (~95h cumulées sur 6 jours)
 - Mac compute disponible : illimité pour tâches CPU-light
 - Datasets locaux : 1.4 GB
 - LoRA checkpoints locaux : 358 MB (MDLM) + 1.2 GB (Qwen3) = 1.55 GB
-- Total artefacts locaux : ~3 GB
+- Total artefacts locaux : ~3.2 GB (incluant Phase 11/12 sweeps)
 
-Tout est en place pour Étape 1 sans coût supplémentaire.
+Étude empirique close. Compute restant alloué à d'éventuelles relances ciblées (figure polish, replication on demand).
 
 ---
 
@@ -168,22 +182,26 @@ Tout est en place pour Étape 1 sans coût supplémentaire.
 - [x] Tester le candidat C (κ activations latentes) — fait, scripts/12
 - [x] Tester un correcteur algorithmique simple (block-Gibbs Du Yan-style) — fait, scripts/13
 - [x] Tester `mh_token_swap` rigoureux — fait, n=50, ratio 0.23 → 0.23 (réfute l'hypothèse Test 2)
-- [x] **Décision prise** : conclure l'étude empirique. Aucun correcteur algorithmique simple ne lève le plateau.
+- [x] **Phase 11** — découplage du coefficient μ : sweep initial + 6 vérifications (4 N=3 + 2 N=2 sur 2 backbones)
+- [x] **Phase 12** — auto-tuning de μ : protocoles A (grille n=200, 3/3), B (Bayesian opt, instable), C (predictor structurel, LOO-MAE 0.469 sur 17 setups)
+- [x] **Décision finale** : papier passe de "diagnostique" à "diagnostique + algorithmique avec étude de calibrage". Étude empirique close.
 - [ ] Choisir venue cible (workshop vs Findings vs main conf)
 - [ ] Décider du langage final (français → anglais ?)
-- [ ] Identifier les 1-2 figures-clés à polir pour la soumission
+- [ ] Identifier les 1-2 figures-clés à polir pour la soumission (μ-sweep curves, predictor LOO scatter)
 
-## Synthèse Phase 9 + Phase 10 (résultats post-prédicteurs)
+## Synthèse Phases 9 → 12
 
-| Tentative | Méthode | Résultat |
+| Phase | Méthode | Résultat |
 |---|---|---|
-| Étape 1 — 4 prédicteurs | B leakage, F-js, A' logit-shift, E spatial | r ≤ 0.48 cross-backbone (échec) |
-| Variantes 2a + 2c | B_abs_dev, B_centred, combinaisons linéaires | r ≤ 0.48 cross-backbone (échec) |
-| Candidat C | κ sur activations latentes (linear probe) | reproduit le pattern κ_OWT (collapse Qwen3) |
-| Phase 10 | Block-Gibbs MCMC à la Du Yan (`noise_then_denoise`) | dégrade le ratio (0.15 → 0.08) |
-| Phase 10b | MH-token-swap rigoureux (sequence-level ELBO acceptance) | préserve mais n'améliore pas (0.23 → 0.23 ; 22.6% accept rate) — **réfute l'hypothèse Test 2 slope < 1** |
+| Phase 9 — 5 prédicteurs | B leakage, F-js, A' logit-shift, E spatial, C κ_act | r ≤ 0.48 cross-backbone (échec). **Sign-flip de B** entre régimes d'experts = finding distinctif. |
+| Phase 10a | Block-Gibbs MCMC (`noise_then_denoise`) | dégrade le ratio (0.15 → 0.08) |
+| Phase 10b | MH-token-swap rigoureux (sequence-level ELBO) | préserve sans améliorer (0.23 → 0.23, 22.6% accept) — **réfute Test 2 slope < 1** |
+| **Phase 11** | **Découplage μ sur log p_base** | **+103 % à +307 % gain ratio sur compositions stylistiques** (4 N=3 + 2 N=2, 2 backbones) |
+| Phase 12a | Auto-tune A (grid n=50) + B (BO n=50) | 1/3 et 0–1/3 succès — n=50 trop bruité |
+| Phase 12b | Auto-tune A et B à n=200 | A : 3/3 (fiable mais coûteux). B : 1/3 strict (instable). |
+| Phase 12c | Predictor C, training set 17 setups | LOO-MAE 0.469. Coef stylistic_load = +1.03 (confirme §13.4 sans codage en dur). |
 
-→ Tous les leviers simples testés sur les artefacts existants ont **échoué** à fournir un prédicteur stable cross-backbone OU un correcteur efficace. Le papier reste **diagnostique** : un cadre empirique qui caractérise précisément où le PoE en MDLM marche et où il échoue, avec un finding distinctif (sign-flip de B entre régimes d'experts).
+→ Le papier porte désormais **une contribution algorithmique** (μ-fix) **avec une étude de portée pratique** (3 protocoles d'auto-tuning, workflow réaliste C-as-prior + A-en-grille-fine).
 
 ## Pour la rédaction finale
 
@@ -191,6 +209,8 @@ PAPER_DRAFT.md contient désormais :
 - Sections 1–9 : étude empirique multi-phase (Phases 1 à 8)
 - Section 10 : discussion + 4 candidats prédicteurs alternatifs
 - Section 11 : évaluation empirique des 5 prédicteurs (B, F-js, A', E, C)
-- Section 12 : tentative correction MCMC (block-Gibbs)
-- Section 13 : conclusion révisée + travaux futurs (incluant `mh_token_swap` non encore testé)
-- Annexes : récap phases (12 lignes), fichiers, fixes techniques, coût
+- Section 12 : tentative correction MCMC (block-Gibbs + MH)
+- Section 13 : Phase 11 — découplage du coefficient μ (rescue stylistic compositions)
+- Section 14 : Phase 12 — auto-tuning de μ (protocoles A, B, C ; LOO-MAE 0.469)
+- Section 15 : conclusion révisée + travaux futurs
+- Annexes : récap phases (14 lignes), fichiers, fixes techniques, coût (~80 USD pod)

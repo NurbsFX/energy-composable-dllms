@@ -1038,3 +1038,107 @@ Pour aller au-delà, il faut soit :
 - ou changer de backbone vers un modèle bien plus capable.
 
 **Output** : `~/Documents/composable-dllms-artifacts/n3_mh_qwen3_fpc_n50.json`.
+
+---
+
+## Phase 11 — Découplage du coefficient μ (2026-04-30 → 2026-05-01)
+
+### Hypothèse
+
+La formule canonique PoE met implicitement μ = 1−N sur log p_base. À N=3, ce
+coefficient vaut −2 et pénalise *trop* fortement les continuations OWT-typiques.
+Hypothèse : découpler μ comme hyperparamètre libre permet de rescue les
+compositions qui échouent sous le canonical.
+
+### Implementation
+
+- `src/composition/poe_sampler.py` : ajout de `PoEConfig.mu_base` et branche
+  alternative dans `PoECompositionModel.__call__` :
+  `logits = mu_base * logits_base + Σ λ_i logits_i`.
+- `scripts/14_mu_sweep.py` : runner pour balayer μ sur un triplet/paire,
+  généralisé pour supporter N=2 ou N=3.
+
+### Sweep initial — Qwen3, formal × positive × concrete (N=3)
+
+| μ | triple_sat | ratio |
+|---:|---:|---:|
+| **−2 canonical** | 0.010 | 0.15 |
+| **−1** ⭐ | **0.040** | **0.61** |
+| 0 | 0.025 | 0.38 |
+
+→ ×4 sur le ratio. Premier signal positif fort.
+
+### Vérifications de généralisation
+
+6 sweeps additionnels (4 N=3 + 2 N=2 sur 2 backbones) : le sweet spot dépend
+du triplet et du backbone, mais la **direction est consistante** — toujours
+moins punitif que le canonical, et le gain n'apparaît que pour les compositions
+**stylistiques**.
+
+| Setup | best μ | best ratio | canonical | gain |
+|---|---:|---:|---:|---:|
+| Qwen3, fpc (style-heavy) | −1 | 0.61 | 0.15 | +307 % |
+| Qwen3, fcs (mix) | −1 | 1.23 | 0.46 | +167 % |
+| Qwen3, p2cs (lexical) | −2 | 3.23 | 3.23 | 0 (déjà ⭐) |
+| MDLM-OWT, fpc | 0 | 0.71 | 0.35 | +103 % |
+| Qwen3, formal × positive (N=2) | −0.5 | 1.07 | 0.33 | +220 % |
+| Qwen3, concrete × sports (N=2) | −1 | 3.29 | 3.29 | 0 (déjà ⭐) |
+
+**Bottom line Phase 11** : μ découplé est le bon levier. Mais sa valeur optimale
+varie cross-backbone et cross-triplet, donc il faut une procédure de sélection.
+
+---
+
+## Phase 12 — Auto-tuning de μ (2026-05-01 → 2026-05-02)
+
+### Trois protocoles testés
+
+A. **Quick grid sweep**, candidats {−2, −1.5, −1, −0.5, 0}, argmax du ratio.
+B. **Bayesian optimization** (GP + EI), 6 évaluations.
+C. **Predictor structurel** : régression linéaire sur 4 features (N,
+   stylistic_load, log10 capacity, mean_marginal), LOO-CV. Aucune passe forward.
+
+### Phase 12a — A et B à n=50 (rapide)
+
+Les deux protocoles échouent : 1/3 et 0–1/3 setups identifient le bon μ\*. La
+variance de n=50 noie tout signal entre candidats voisins.
+
+### Phase 12b — A et B à n=200 (fiable)
+
+| Setup | GT μ\* | A μ̂ | A r̂ | B μ̂ | B r̂ | A | B |
+|---|---:|---:|---:|---:|---:|:---:|:---:|
+| Qwen3 fpc | −1 | −1 | 0.61 | 0 | 0.38 | ✓ | ✗ |
+| Qwen3 pcs | −2 | −2 | 3.23 | −2 | 3.23 | ✓ | ✓ |
+| MDLM fpc | 0 | 0 | 0.71 | −0.21 | 0.88 | ✓ | ≈ |
+
+→ A à n=200 est fiable (3/3) mais coûteux ; B est instable.
+
+### Phase 12c — Predictor C, training set étendu à 17 setups
+
+10 sweeps additionnels N=2 sur Qwen3 et MDLM-OWT (`mu_extra/`) pour faire
+passer le training set du predictor de 7 → 17 setups.
+
+```
+μ_pred = −0.106
+       − 0.240 · N
+       + 1.032 · stylistic_load   ⭐ (positive — confirme §13.4)
+       − 0.229 · log10(capacity_M)
+       − 0.348 · mean_marginal
+```
+
+LOO-MAE = 0.469 sur 17 setups (~23 % de l'amplitude des μ\* observés).
+
+**Sign de stylistic_load** : avec 7 setups il était −0.16 (counterintuitif).
+Avec 17, il devient **+1.03** — le finding qualitatif Phase 11 émerge sans
+codage en dur.
+
+### Synthèse Phase 12
+
+Aucun protocole seul ne remplace un sweep manuel. Workflow réaliste :
+1. Calculer C (gratuit) → prior $\hat{\mu}_C \pm 0.5$.
+2. Lancer A en grille fine autour de $\hat{\mu}_C$ (3 candidats au lieu de 5+).
+3. Fallback heuristique : μ = −1 (gros backbone, stylistique), μ = 0 (petit
+   backbone), canonical 1−N (lexical).
+
+**Outputs** : `auto_tune_n200/{qwen3_fpc,qwen3_pcs,mdlm_fpc}.json`,
+`mu_extra/n2_*.json` (×10), `predict_mu.json`.

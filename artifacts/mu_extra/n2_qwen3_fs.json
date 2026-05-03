@@ -1,0 +1,58 @@
+{
+  "triplet": [
+    "formal",
+    "sports"
+  ],
+  "backbone": "dllm-hub/Qwen3-0.6B-diffusion-mdlm-v0.1",
+  "thresholds": {
+    "len": 60.0,
+    "form": 0.5777774006128311,
+    "sent": 0.9774872660636902,
+    "sent2": 0.41602788120508194,
+    "conc": 2.909826388888889,
+    "topic": 0.9992345571517944
+  },
+  "marginals": {
+    "formal": 0.535,
+    "sports": 0.21
+  },
+  "indep_ref": 0.11235,
+  "config": {
+    "n_samples": 200,
+    "max_new_tokens": 48,
+    "num_steps": 256,
+    "mu_values": [
+      -1.5,
+      -1.0,
+      -0.5,
+      0.0
+    ]
+  },
+  "sweep_results": {
+    "standard_-1": {
+      "mu": -1.0,
+      "triple_sat": 0.06,
+      "ratio": 0.5340453938584779
+    },
+    "mu_-1.50": {
+      "mu": -1.5,
+      "triple_sat": 0.015,
+      "ratio": 0.13351134846461948
+    },
+    "mu_-1.00": {
+      "mu": -1.0,
+      "triple_sat": 0.07,
+      "ratio": 0.6230529595015577
+    },
+    "mu_-0.50": {
+      "mu": -0.5,
+      "triple_sat": 0.075,
+      "ratio": 0.6675567423230974
+    },
+    "mu_+0.00": {
+      "mu": 0.0,
+      "triple_sat": 0.07,
+      "ratio": 0.6230529595015577
+    }
+  }
+}
