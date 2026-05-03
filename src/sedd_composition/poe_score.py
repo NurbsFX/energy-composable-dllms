@@ -27,6 +27,7 @@ with mu_base = (1 − Σ λ_k) recovering vanilla PoE.
 
 from __future__ import annotations
 
+import contextlib
 from dataclasses import dataclass
 
 import torch
@@ -185,6 +186,15 @@ class PoEScoreCompositionModel(nn.Module):
             log_score[..., idx] = torch.where(bad, torch.zeros_like(col), col)
         return log_score
 
+    def _disable_adapter_ctx(self):
+        """Return a context manager that disables LoRA adapters if the base
+        is PEFT-wrapped, else a no-op. Lets the smoke test (no LoRA) and
+        the PoE composition (with LoRA) share the same forward path."""
+        fn = getattr(self.base, "disable_adapter", None)
+        if fn is None:
+            return contextlib.nullcontext()
+        return fn()
+
     def forward(self, x: torch.Tensor, sigma: torch.Tensor) -> torch.Tensor:
         """Compose log-scores from the base + active LoRA adapters.
 
@@ -198,7 +208,7 @@ class PoEScoreCompositionModel(nn.Module):
 
         # Base log-score: backbone with all adapters disabled.
         with torch.no_grad():
-            with self.base.disable_adapter():
+            with self._disable_adapter_ctx():
                 log_s_base = self.base(x, sigma)
 
             mu_eff = self._resolve_mu()
