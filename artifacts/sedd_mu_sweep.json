@@ -1,0 +1,79 @@
+{
+  "triplet": [
+    "formal",
+    "positive",
+    "concrete"
+  ],
+  "backbone": "louaaron/sedd-small",
+  "thresholds": {
+    "len": 64.0,
+    "form": 0.7670745998620987,
+    "sent": 0.6788823455572128,
+    "sent2": 0.1497509479522705,
+    "conc": 2.730722222222222,
+    "topic": 0.4047914668917656
+  },
+  "marginals": {
+    "formal": 0.22,
+    "positive": 0.6,
+    "concrete": 0.625
+  },
+  "indep_ref": 0.0825,
+  "config": {
+    "n_samples": 200,
+    "seq_len": 64,
+    "num_steps": 128,
+    "mu_values": [
+      -2.0,
+      -1.5,
+      -1.0,
+      -0.5,
+      0.0,
+      0.5,
+      1.0
+    ],
+    "seed": 42
+  },
+  "sweep_results": {
+    "canonical_-2": {
+      "mu": -2.0,
+      "triple_sat": 0.015,
+      "ratio": 0.1818181818181818
+    },
+    "mu_-2.00": {
+      "mu": -2.0,
+      "triple_sat": 0.02,
+      "ratio": 0.24242424242424243
+    },
+    "mu_-1.50": {
+      "mu": -1.5,
+      "triple_sat": 0.01,
+      "ratio": 0.12121212121212122
+    },
+    "mu_-1.00": {
+      "mu": -1.0,
+      "triple_sat": 0.005,
+      "ratio": 0.06060606060606061
+    },
+    "mu_-0.50": {
+      "mu": -0.5,
+      "triple_sat": 0.0,
+      "ratio": 0.0
+    },
+    "mu_+0.00": {
+      "mu": 0.0,
+      "triple_sat": 0.0,
+      "ratio": 0.0
+    },
+    "mu_+0.50": {
+      "mu": 0.5,
+      "triple_sat": 0.0,
+      "ratio": 0.0
+    },
+    "mu_+1.00": {
+      "mu": 1.0,
+      "triple_sat": 0.0,
+      "ratio": 0.0
+    }
+  }
+}

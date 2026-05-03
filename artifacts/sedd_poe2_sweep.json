@@ -1,0 +1,192 @@
+{
+  "backbone": "louaaron/sedd-small",
+  "config": {
+    "n_samples": 200,
+    "seq_len": 64,
+    "num_steps": 128,
+    "seed": 42
+  },
+  "thresholds": {
+    "len": 64.0,
+    "form": 0.7670745998620987,
+    "sent": 0.6788823455572128,
+    "sent2": 0.1497509479522705,
+    "conc": 2.730722222222222,
+    "topic": 0.4047914668917656
+  },
+  "marginals": {
+    "long": 0.86,
+    "formal": 0.22,
+    "positive": 0.6,
+    "positive2": 0.595,
+    "concrete": 0.625,
+    "sports": 0.82
+  },
+  "results": {
+    "long_formal": {
+      "pair": [
+        "long",
+        "formal"
+      ],
+      "marginal_a": 0.86,
+      "marginal_b": 0.22,
+      "indep_ref": 0.1892,
+      "pair_sat": 0.125,
+      "ratio": 0.660676532769556
+    },
+    "long_positive": {
+      "pair": [
+        "long",
+        "positive"
+      ],
+      "marginal_a": 0.86,
+      "marginal_b": 0.6,
+      "indep_ref": 0.516,
+      "pair_sat": 0.275,
+      "ratio": 0.5329457364341086
+    },
+    "long_positive2": {
+      "pair": [
+        "long",
+        "positive2"
+      ],
+      "marginal_a": 0.86,
+      "marginal_b": 0.595,
+      "indep_ref": 0.5116999999999999,
+      "pair_sat": 0.365,
+      "ratio": 0.7133085792456518
+    },
+    "long_concrete": {
+      "pair": [
+        "long",
+        "concrete"
+      ],
+      "marginal_a": 0.86,
+      "marginal_b": 0.625,
+      "indep_ref": 0.5375,
+      "pair_sat": 0.305,
+      "ratio": 0.5674418604651162
+    },
+    "long_sports": {
+      "pair": [
+        "long",
+        "sports"
+      ],
+      "marginal_a": 0.86,
+      "marginal_b": 0.82,
+      "indep_ref": 0.7051999999999999,
+      "pair_sat": 0.535,
+      "ratio": 0.7586500283607488
+    },
+    "formal_positive": {
+      "pair": [
+        "formal",
+        "positive"
+      ],
+      "marginal_a": 0.22,
+      "marginal_b": 0.6,
+      "indep_ref": 0.132,
+      "pair_sat": 0.105,
+      "ratio": 0.7954545454545454
+    },
+    "formal_positive2": {
+      "pair": [
+        "formal",
+        "positive2"
+      ],
+      "marginal_a": 0.22,
+      "marginal_b": 0.595,
+      "indep_ref": 0.1309,
+      "pair_sat": 0.08,
+      "ratio": 0.611153552330023
+    },
+    "formal_concrete": {
+      "pair": [
+        "formal",
+        "concrete"
+      ],
+      "marginal_a": 0.22,
+      "marginal_b": 0.625,
+      "indep_ref": 0.1375,
+      "pair_sat": 0.055,
+      "ratio": 0.39999999999999997
+    },
+    "formal_sports": {
+      "pair": [
+        "formal",
+        "sports"
+      ],
+      "marginal_a": 0.22,
+      "marginal_b": 0.82,
+      "indep_ref": 0.18039999999999998,
+      "pair_sat": 0.02,
+      "ratio": 0.1108647450110865
+    },
+    "positive_positive2": {
+      "pair": [
+        "positive",
+        "positive2"
+      ],
+      "marginal_a": 0.6,
+      "marginal_b": 0.595,
+      "indep_ref": 0.357,
+      "pair_sat": 0.6,
+      "ratio": 1.680672268907563
+    },
+    "positive_concrete": {
+      "pair": [
+        "positive",
+        "concrete"
+      ],
+      "marginal_a": 0.6,
+      "marginal_b": 0.625,
+      "indep_ref": 0.375,
+      "pair_sat": 0.285,
+      "ratio": 0.7599999999999999
+    },
+    "positive_sports": {
+      "pair": [
+        "positive",
+        "sports"
+      ],
+      "marginal_a": 0.6,
+      "marginal_b": 0.82,
+      "indep_ref": 0.49199999999999994,
+      "pair_sat": 0.585,
+      "ratio": 1.1890243902439026
+    },
+    "positive2_concrete": {
+      "pair": [
+        "positive2",
+        "concrete"
+      ],
+      "marginal_a": 0.595,
+      "marginal_b": 0.625,
+      "indep_ref": 0.37187499999999996,
+      "pair_sat": 0.39,
+      "ratio": 1.0487394957983196
+    },
+    "positive2_sports": {
+      "pair": [
+        "positive2",
+        "sports"
+      ],
+      "marginal_a": 0.595,
+      "marginal_b": 0.82,
+      "indep_ref": 0.48789999999999994,
+      "pair_sat": 0.58,
+      "ratio": 1.1887681902029106
+    },
+    "concrete_sports": {
+      "pair": [
+        "concrete",
+        "sports"
+      ],
+      "marginal_a": 0.625,
+      "marginal_b": 0.82,
+      "indep_ref": 0.5125,
+      "pair_sat": 0.48,
+      "ratio": 0.9365853658536586
+    }
+  }
+}

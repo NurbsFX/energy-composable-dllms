@@ -181,4 +181,131 @@ Compared to Paper 1's ~95h pod time (~80 USD), Paper 2 should be
 
 ---
 
-*Working draft. Updated as the SEDD track progresses.*
+## 9. Results — first run on SEDD-small (2026-05-03)
+
+End-to-end pipeline on RunPod A100 80GB, ~3.5h total compute (~$30):
+
+* **Setup**: torch 2.11 + transformers 4.57 + peft 0.17. SEDD vendored
+  with two upstream patches (flash_attn → SDPA fallback,
+  `@torch.jit.script` decorators stripped — JIT crashes on torch 2.11).
+* **Training**: 6 LoRA experts on SEDD-small (170M params with adapter,
+  0.88M trainable), 2500 steps each at batch=16, seq_len=128. Final
+  losses 380–430 across the 6 verticals (score-entropy units).
+* **Eval**: $n=200$ samples per condition, seq_len=64, 128 sampling
+  steps with the analytic τ-leaping predictor. Unconditional generation.
+
+### 9.1 H1 — PoE-2 super-additivity: **falsified**
+
+15 pairs out of $\binom{6}{2}$, ratios computed against
+$m_a \times m_b$.
+
+| | mean ratio | super-additive? |
+|---|---:|---|
+| **SEDD-small** (Paper 2) | **0.80** | **NO — sub-additive** |
+| MDLM Paper 1 reference | 1.07 | YES |
+
+The only super-additive pair is `positive × positive2` (ratio 1.68),
+which is structurally trivial — both are sentiment proxies on the
+same semantic axis. Worst pair: `formal × sports` at 0.11.
+
+Plot: `artifacts/plots/sedd_poe2_bars.png`.
+
+### 9.2 H2 — PoE-3 plateau lifts on SEDD: **falsified**
+
+| Triplet | SEDD canonical | MDLM canonical | MDLM best μ-fix |
+|---|---:|---:|---:|
+| formal × positive × concrete (style) | **0.18** | 0.55 | 0.61 |
+| formal × concrete × sports (mixed) | **0.00** | 0.46 | 1.23 |
+| positive2 × concrete × sports (lex) | **0.84** | 3.23 | 3.23 |
+
+SEDD is **worse than MDLM on all three triplets**, including the
+purely lexical one that was strongly super-additive on MDLM (ratio
+3.23). The mixed triplet collapses entirely (ratio 0.00).
+
+Plot: `artifacts/plots/sedd_poe3_bars.png`.
+
+### 9.3 H3 — μ-fix transports to SEDD: **falsified, in the inverse direction**
+
+μ-sweep on `formal × positive × concrete` (the stylistic triplet
+where Paper 1's μ-fix produced the largest gain on MDLM):
+
+| μ | SEDD ratio | MDLM ratio (Paper 1) |
+|---:|---:|---:|
+| **−2 (canonical)** | **0.24** ⭐ | 0.55 |
+| −1.5 | 0.12 | 0.54 |
+| −1 | 0.06 | **0.61** ⭐ (+11%) |
+| −0.5 | 0.00 | 0.38 |
+| 0 | 0.00 | 0.38 |
+| +0.5 | 0.00 | 0.38 |
+| +1 | 0.00 | 0.31 |
+
+On SEDD the canonical $\mu = 1-N = -2$ is **already optimal**, and any
+relaxation drops the ratio to zero. This is the **inverse pattern**
+of Paper 1 on MDLM, where μ-fix improved by +11–29 % over canonical.
+
+Plot: `artifacts/plots/sedd_mu_sweep_bars.png`.
+
+### 9.4 Synthesis — what the results tell us
+
+Three crisp negative findings:
+
+1. **Score-based composition does not lift the N=3 plateau.** The
+   "exact at sequence level" theoretical argument we used to motivate
+   Paper 2 (PoE-of-densities transports cleanly to log-scores) is
+   *mathematically* correct but **does not translate into compositional
+   capability gains** under our protocol on SEDD-small.
+2. **Paper 1's μ-fix does not transport to SEDD.** Worse, the optimal
+   direction is inverted — canonical is already optimal, relaxing
+   destroys composition.
+3. **MDLM > SEDD on all three triplets**, including the lexical one
+   where MDLM's canonical PoE was already strongly super-additive.
+
+This is informative. It says the PoE bottleneck is **not** simply the
+per-position factorization implicit in the MDLM categorical sampler.
+Some other property of the score-domain composition / τ-leaping
+sampler is doing more harm than the factorization was avoiding.
+
+### 9.5 Caveats / what we have not ruled out
+
+- **LoRA undertrained**. 5 000 documents × 2500 steps. The training
+  losses were still decreasing at the end. A longer run (10 000 steps,
+  full datasets) might change the picture. **Cost to test**: ~12h pod
+  + we'd need to re-run all evals (~$50 total). Probably worth doing
+  before claiming the negative result is final.
+- **Capacity asymmetry**. SEDD-small has 90M params; MDLM Paper 1's
+  best results came from Qwen3-MDLM (596M). A SEDD-medium repeat
+  (320M) would equalize for capacity. **Cost**: ~$15.
+- **Sampling protocol**. Paper 1 used MDLM with a 12-token prompt
+  prefix; Paper 2 uses unconditional SEDD generation. Within-paradigm
+  ratios should be meaningful (canonical vs μ-fix on the same
+  protocol), but the absolute baselines differ. **Cost to fix**:
+  zero-effort (re-run with prompts), ~5h pod.
+- **Score domain numerical issues**. We sanitize the absorbing-token
+  column when summing log-scores; otherwise NaNs would corrupt the
+  PoE sum. The sanitization is conservative (zero-out non-finite
+  values). It might over- or under-mask in ways that hurt composition.
+
+### 9.6 What we ship as Paper 2
+
+A **negative-result paper** with three components:
+
+1. **Methodology**: parallel score-based composition stack with
+   identical algebra to MDLM PoE, plus the τ-leaping sampler.
+2. **Hypotheses falsified**: H1 (super-additivity on N=2), H2 (plateau
+   lifts on N=3), H3 (μ-fix transports). Tables 9.1–9.3.
+3. **Discussion**: the score-domain composition is mathematically
+   exact at the sequence level but empirically *worse* than the
+   factorized MDLM PoE in our protocol. The PoE bottleneck is **not**
+   just per-position factorization. This rules out a class of theoretical
+   arguments and motivates explicitly-learned compositional energies
+   (a third paper, not this one).
+
+**Paper 1 stands unaffected.** Paper 2's negative finding does not
+weaken Paper 1's μ-fix — it confirms that μ-fix is a property of
+the MDLM-PoE *paradigm* and does not generalize to score-based PoE
+in this implementation.
+
+---
+
+*Working draft updated 2026-05-03. Phase-9 results above are first-run
+numbers; longer training and SEDD-medium repeat would tighten them.*

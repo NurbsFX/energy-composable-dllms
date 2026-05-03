@@ -1,0 +1,56 @@
+{
+  "backbone": "louaaron/sedd-small",
+  "config": {
+    "n_samples": 200,
+    "seq_len": 64,
+    "num_steps": 128,
+    "seed": 42
+  },
+  "thresholds": {
+    "len": 64.0,
+    "form": 0.7670745998620987,
+    "sent": 0.6788823455572128,
+    "sent2": 0.1497509479522705,
+    "conc": 2.730722222222222,
+    "topic": 0.4047914668917656
+  },
+  "marginals": {
+    "positive": 0.6,
+    "positive2": 0.595,
+    "concrete": 0.625,
+    "sports": 0.82,
+    "formal": 0.22
+  },
+  "triplets": {
+    "formal_positive_concrete": {
+      "triplet": [
+        "formal",
+        "positive",
+        "concrete"
+      ],
+      "indep_ref": 0.0825,
+      "triple_sat": 0.015,
+      "ratio": 0.1818181818181818
+    },
+    "formal_concrete_sports": {
+      "triplet": [
+        "formal",
+        "concrete",
+        "sports"
+      ],
+      "indep_ref": 0.11275,
+      "triple_sat": 0.0,
+      "ratio": 0.0
+    },
+    "positive2_concrete_sports": {
+      "triplet": [
+        "positive2",
+        "concrete",
+        "sports"
+      ],
+      "indep_ref": 0.3049375,
+      "triple_sat": 0.255,
+      "ratio": 0.8362369337979095
+    }
+  }
+}
